@@ -1,22 +1,32 @@
 """
-eval_crew_final.py - CrewAI Hierarchical Evaluator (compatible with CrewAI 1.9.3)
+crewai_evaluator.py
+→ Full hierarchical multi-agent CrewAI evaluator
 """
 
+from crewai import Agent, Task, Crew, Process
+from pydantic import BaseModel
 import json
+import yaml
 import os
 import traceback
-from typing import Any
-
-import yaml
-from crewai import Agent, Crew, Process, Task
+from typing import Dict, Any, List
 from dotenv import load_dotenv
-from pydantic import BaseModel
+
+# Import CrewAI tools from dedicated module
+from crewai_tools import (
+    TraceParserTool,
+    CostCalculatorTool,
+    SafetyGuardTool,
+    HumanReviewTool,
+    RegressionComparatorTool,
+    MetricCalculatorTool,
+)
 
 load_dotenv()
 
-print("🚀 Starting CrewAI Evaluator (fixed for hierarchical process)...")
+print("🚀 Starting CrewAI Multi-Agent Evaluator...")
 
-OPENROUTER_API_KEY = os.getenv("OPENAI_API_KEY")  # or your preferred key
+OPENROUTER_API_KEY = os.getenv("OPENAI_API_KEY")
 
 
 def get_llm_config(agent_name: str):
@@ -41,12 +51,12 @@ def get_llm_config(agent_name: str):
 class EvaluationReport(BaseModel):
     test_case_id: str
     pass_fail: str
-    metrics: dict[str, Any]
+    metrics: Dict[str, Any]
     failure_mode: str
-    recommendations: list[str]
+    recommendations: List[str]
     release_decision: str
-    top_bottlenecks: list[str]
-    top_regressions: list[str]
+    top_bottlenecks: List[str]
+    top_regressions: List[str]
     hallucination_detected: bool = False
     bias_detected: bool = False
     toxicity_detected: bool = False
@@ -55,9 +65,9 @@ class EvaluationReport(BaseModel):
 class AgentEvaluatorCrew:
     def __init__(self):
         try:
-            with open("config/agents.yaml") as f:
+            with open("config/agents.yaml", "r") as f:
                 self.agents_config = yaml.safe_load(f)
-            with open("config/tasks.yaml") as f:
+            with open("config/tasks.yaml", "r") as f:
                 self.tasks_config = yaml.safe_load(f)
             print("✅ Config files loaded successfully.")
         except Exception as e:
@@ -70,16 +80,17 @@ class AgentEvaluatorCrew:
             config=self.agents_config.get("evaluator_coordinator", {}),
             verbose=True,
             llm=get_llm_config("evaluator_coordinator"),
-            allow_delegation=True,  # Important for hierarchical
+            allow_delegation=True,
         )
 
     def create_worker_agents(self):
-        """Create the specialist agents (these go into the agents list)."""
+        """Create the specialist agents."""
         return [
             Agent(
                 config=self.agents_config.get("trace_analyst", {}),
                 verbose=True,
                 llm=get_llm_config("trace_analyst"),
+                tools=[TraceParserTool()],
             ),
             Agent(
                 config=self.agents_config.get("quality_judge", {}),
@@ -90,16 +101,19 @@ class AgentEvaluatorCrew:
                 config=self.agents_config.get("safety_judge", {}),
                 verbose=True,
                 llm=get_llm_config("safety_judge"),
+                tools=[SafetyGuardTool(), HumanReviewTool()],
             ),
             Agent(
                 config=self.agents_config.get("cost_latency_analyst", {}),
                 verbose=True,
                 llm=get_llm_config("cost_latency_analyst"),
+                tools=[CostCalculatorTool()],
             ),
             Agent(
                 config=self.agents_config.get("regression_monitor", {}),
                 verbose=True,
                 llm=get_llm_config("regression_monitor"),
+                tools=[RegressionComparatorTool()],
             ),
         ]
 
@@ -107,18 +121,22 @@ class AgentEvaluatorCrew:
         manager = self.create_manager()
         workers = self.create_worker_agents()
 
-        # Main coordination task (assigned to manager)
-        main_task = Task(config=self.tasks_config.get("coordinate_evaluation", {}), agent=manager)
+        # Main coordination task assigned to manager
+        main_task = Task(
+            config=self.tasks_config.get("coordinate_evaluation", {}),
+            agent=manager,
+            tools=[MetricCalculatorTool()]   # Final aggregation tool
+        )
 
         return Crew(
-            agents=workers,  # ← ONLY workers here (no manager)
+            agents=workers,                    # Only workers here
             tasks=[main_task],
             process=Process.hierarchical,
-            manager_agent=manager,  # ← Manager defined separately
+            manager_agent=manager,
             verbose=True,
-            memory=False,  # Avoids extra embedding calls
+            memory=False,
             output_json=True,
-            max_iter=10,  # Safety limit
+            max_iter=10,
         )
 
 
@@ -129,13 +147,11 @@ if __name__ == "__main__":
 
         test_inputs = {
             "test_case_id": "TC-001",
-            "trace_json_here": json.dumps(
-                {
-                    "steps": [{"name": "research", "latency_ms": 2450}],
-                    "loop_count": 0,
-                    "retry_count": 1,
-                }
-            ),
+            "trace_json_here": json.dumps({
+                "steps": [{"name": "research", "latency_ms": 2450}],
+                "loop_count": 0,
+                "retry_count": 1
+            }),
             "expected_outcome": "Paris is the capital of France.",
             "baseline": {"p95_latency_ms": 3000, "safety_violation_rate": 0},
         }
