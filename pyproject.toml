@@ -6,18 +6,24 @@ requires-python = ">=3.11"
 dependencies = []
 
 
-
 [tool.pytest.ini_options]
-addopts = "-v --tb=short"
+addopts = """
+  -v --tb=short
+  --cov=.
+  --cov-report=xml:reports/coverage.xml
+  --cov-report=term-missing
+  --cov-fail-under=30
+"""
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-pythonpath = ["."]   # Allows importing from root (e.g. import tools, import dashboard)
+pythonpath = ["."]
 
 markers = [
     "integration: marks tests as integration tests (require live API keys; deselect with '-m not integration')",
 ]
+
 
 [tool.coverage.run]
 source = ["."]
@@ -27,15 +33,18 @@ omit = [
     ".venv/*",
     "venv/*",
     "*.egg-info",
-    "build",
-    "dist",
-    "reports",
+    "build/*",
+    "dist/*",
+    "reports/*",
+    "eval_crew_v*.py",
+    "commit_all.sh",
 ]
 
 [tool.coverage.report]
 show_missing = true
 skip_covered = false
 fail_under = 30
+
 
 # ─────────────────────────────────────────────────────────────────
 # Ruff — linting & formatting
@@ -52,30 +61,42 @@ exclude = [
     "dist",
     "reports",
     "*.egg-info",
-    # Archived versions
     "eval_crew_v*.py",
 ]
 
 [tool.ruff.lint]
 select = [
-    "E",  # pycodestyle errors
-    "W",  # pycodestyle warnings
-    "F",  # pyflakes
-    "I",  # isort
-    "B",  # flake8-bugbear
-    "UP", # pyupgrade
-    "N",  # pep8-naming
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade
+    "N",   # pep8-naming
 ]
 ignore = [
-    "E501", # line-too-long (handled by formatter)
-    "B008", # function calls in default arguments
-    "N999", # module name check for PascalCase directories
+    "E501",  # line-too-long (handled by formatter)
+    "B008",  # function calls in default arguments
+    "N999",  # module name check for PascalCase directories
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["tools", "eval_crew", "eval_simple", "dashboard", "ollama_evaluator", "crewai_evaluator"]
+known-first-party = [
+    "tools",
+    "eval_crew",
+    "eval_simple",
+    "dashboard",
+    "ollama_evaluator",
+    "crewai_evaluator",
+    "comparator",
+    "llm_judge",
+    "scorer",
+    "runners",
+    "runner",
+    "sqlite_store",
+    "rankings",
+]
 
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
-
