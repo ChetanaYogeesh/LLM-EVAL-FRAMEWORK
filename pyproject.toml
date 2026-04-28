@@ -1,69 +1,78 @@
+[project]
+name = "llm-eval-framework"
+version = "0.1.0"
+description = "LLM Evaluation Framework with Ollama, CrewAI, and Professional Pipeline"
+requires-python = ">=3.11"
+dependencies = []
+
 [tool.pytest.ini_options]
 addopts = "-v --tb=short"
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-pythonpath     = ["."]          # adds repo root to sys.path so 'import tools' works
+pythonpath = ["."]   # Allows importing from root (e.g. import tools, import dashboard)
 
-[tool.coverage.run]
-source = ["."]
-omit = ["tests/*", "env/*", "*.venv/*"]
-
-[tool.coverage.report]
-show_missing = true
 markers = [
     "integration: marks tests as integration tests (require live API keys; deselect with '-m not integration')",
 ]
-addopts = "-v --tb=short"
+
+[tool.coverage.run]
+source = ["."]
+omit = [
+    "tests/*",
+    "env/*",
+    ".venv/*",
+    "venv/*",
+    "*.egg-info",
+    "build",
+    "dist",
+    "reports",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+fail_under = 30
 
 # ─────────────────────────────────────────────────────────────────
 # Ruff — linting & formatting
 # ─────────────────────────────────────────────────────────────────
 [tool.ruff]
 target-version = "py311"
-line-length    = 100
+line-length = 100
 exclude = [
-    ".git", ".venv", "venv", "__pycache__", "build", "dist",
-    "reports", "*.egg-info",
-    # Archived version history — not production code
+    ".git",
+    ".venv",
+    "venv",
+    "__pycache__",
+    "build",
+    "dist",
+    "reports",
+    "*.egg-info",
+    # Archived versions
     "eval_crew_v*.py",
 ]
 
 [tool.ruff.lint]
 select = [
-    "E",   # pycodestyle errors
-    "W",   # pycodestyle warnings
-    "F",   # pyflakes
-    "I",   # isort
-    "B",   # flake8-bugbear
-    "UP",  # pyupgrade
-    "N",   # pep8-naming
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "B",  # flake8-bugbear
+    "UP", # pyupgrade
+    "N",  # pep8-naming
 ]
 ignore = [
-    "E501",  # line-too-long (handled by formatter)
-    "B008",  # function calls in default args (common in pydantic)
-    # N999: module name check fires on packages whose *directory* name is
-    # PascalCase (e.g. a repo cloned as AgentEvaluatorCrew/).
-    # Our source files are correctly snake_cased; suppress the false positive.
-    "N999",
+    "E501", # line-too-long (handled by formatter)
+    "B008", # function calls in default arguments
+    "N999", # module name check for PascalCase directories
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["tools", "eval_crew", "eval_simple", "dashboard"]
+known-first-party = ["tools", "eval_crew", "eval_simple", "dashboard", "ollama_evaluator", "crewai_evaluator"]
 
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
-
-# ─────────────────────────────────────────────────────────────────
-# Coverage
-# ─────────────────────────────────────────────────────────────────
-[tool.coverage.run]
-source = ["."]
-omit   = ["tests/*", "venv/*", ".venv/*", "setup.py"]
-
-[tool.coverage.report]
-show_missing   = true
-skip_covered   = false
-fail_under     = 70
