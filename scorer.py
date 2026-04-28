@@ -27,7 +27,9 @@ def compute_bleu(response: str, reference: str) -> float:
         ref_tokens = reference.lower().split()
         hyp_tokens = response.lower().split()
         smoother = SmoothingFunction().method1
-        return round(sentence_bleu([ref_tokens], hyp_tokens, smoothing_function=smoother), 4)
+        return round(
+            sentence_bleu([ref_tokens], hyp_tokens, smoothing_function=smoother), 4
+        )
     except ImportError:
         return _fallback_overlap(response, reference)
 
@@ -79,7 +81,21 @@ def _fallback_overlap(response: str, reference: str) -> float:
     Lightweight token-overlap similarity when NLP libraries are unavailable.
     Returns Jaccard similarity as a proxy metric.
     """
-    stop = {"the", "a", "an", "is", "are", "and", "or", "but", "in", "on", "to", "for", "of"}
+    stop = {
+        "the",
+        "a",
+        "an",
+        "is",
+        "are",
+        "and",
+        "or",
+        "but",
+        "in",
+        "on",
+        "to",
+        "for",
+        "of",
+    }
     r1 = set(response.lower().split()) - stop
     r2 = set(reference.lower().split()) - stop
     if not r1 and not r2:
