@@ -3,23 +3,24 @@ crewai_evaluator.py
 → Full hierarchical multi-agent CrewAI evaluator
 """
 
-from crewai import Agent, Task, Crew, Process
-from pydantic import BaseModel
 import json
-import yaml
 import os
 import traceback
-from typing import Dict, Any, List
+from typing import Any
+
+import yaml
+from crewai import Agent, Crew, Process, Task
 from dotenv import load_dotenv
+from pydantic import BaseModel
 
 # Import CrewAI tools from dedicated module
 from crewai_tools import (
-    TraceParserTool,
     CostCalculatorTool,
-    SafetyGuardTool,
     HumanReviewTool,
-    RegressionComparatorTool,
     MetricCalculatorTool,
+    RegressionComparatorTool,
+    SafetyGuardTool,
+    TraceParserTool,
 )
 
 load_dotenv()
@@ -51,12 +52,12 @@ def get_llm_config(agent_name: str):
 class EvaluationReport(BaseModel):
     test_case_id: str
     pass_fail: str
-    metrics: Dict[str, Any]
+    metrics: dict[str, Any]
     failure_mode: str
-    recommendations: List[str]
+    recommendations: list[str]
     release_decision: str
-    top_bottlenecks: List[str]
-    top_regressions: List[str]
+    top_bottlenecks: list[str]
+    top_regressions: list[str]
     hallucination_detected: bool = False
     bias_detected: bool = False
     toxicity_detected: bool = False
@@ -65,9 +66,9 @@ class EvaluationReport(BaseModel):
 class AgentEvaluatorCrew:
     def __init__(self):
         try:
-            with open("config/agents.yaml", "r") as f:
+            with open("config/agents.yaml") as f:
                 self.agents_config = yaml.safe_load(f)
-            with open("config/tasks.yaml", "r") as f:
+            with open("config/tasks.yaml") as f:
                 self.tasks_config = yaml.safe_load(f)
             print("✅ Config files loaded successfully.")
         except Exception as e:
@@ -125,11 +126,11 @@ class AgentEvaluatorCrew:
         main_task = Task(
             config=self.tasks_config.get("coordinate_evaluation", {}),
             agent=manager,
-            tools=[MetricCalculatorTool()]   # Final aggregation tool
+            tools=[MetricCalculatorTool()],  # Final aggregation tool
         )
 
         return Crew(
-            agents=workers,                    # Only workers here
+            agents=workers,  # Only workers here
             tasks=[main_task],
             process=Process.hierarchical,
             manager_agent=manager,
@@ -147,11 +148,13 @@ if __name__ == "__main__":
 
         test_inputs = {
             "test_case_id": "TC-001",
-            "trace_json_here": json.dumps({
-                "steps": [{"name": "research", "latency_ms": 2450}],
-                "loop_count": 0,
-                "retry_count": 1
-            }),
+            "trace_json_here": json.dumps(
+                {
+                    "steps": [{"name": "research", "latency_ms": 2450}],
+                    "loop_count": 0,
+                    "retry_count": 1,
+                }
+            ),
             "expected_outcome": "Paris is the capital of France.",
             "baseline": {"p95_latency_ms": 3000, "safety_violation_rate": 0},
         }

@@ -1,28 +1,36 @@
-import streamlit as st
+"""
+pages/2_🔍_Results.py
+Separate results viewer for Ollama and CrewAI evaluators
+"""
+
 import json
-import pandas as pd
-import plotly.express as px
 from pathlib import Path
 
+import pandas as pd
+import plotly.express as px
+import streamlit as st
+
 st.title("🔍 Evaluation Results")
+
 
 def load_json_results():
     results = []
     for file in ["evaluation_results.json", "evaluation_history.json"]:
         if Path(file).exists():
             try:
-                with open(file, "r") as f:
+                with open(file) as f:
                     data = json.load(f)
                 if isinstance(data, dict):
                     data = [data]
                 results.extend(data)
-            except:
+            except Exception:
                 pass
     return results
 
+
 all_results = load_json_results()
 
-tab1, tab2, tab3 = st.tabs(["🟢 Ollama Results", "🔵 CrewAI Results", "🔴 Professional"])
+tab1, tab2, tab3 = st.tabs(["🟢 Ollama Results", "🔵 CrewAI Results", "🔴 Professional Pipeline"])
 
 with tab1:
     st.subheader("🟢 Ollama Evaluator Results")
@@ -30,9 +38,15 @@ with tab1:
     if not res:
         st.info("No Ollama results yet. Run the Ollama Evaluator first.")
     else:
-        selected = st.selectbox("Select Ollama run", [f"{r.get('test_case_id','N/A')} - {r.get('timestamp','')}" for r in res])
-        current = next((r for r in res if f"{r.get('test_case_id')} - {r.get('timestamp','')}" == selected), res[0])
-        
+        selected = st.selectbox(
+            "Select Ollama run",
+            [f"{r.get('test_case_id', 'N/A')} - {r.get('timestamp', '')}" for r in res],
+        )
+        current = next(
+            (r for r in res if f"{r.get('test_case_id')} - {r.get('timestamp', '')}" == selected),
+            res[0],
+        )
+
         col1, col2, col3, col4 = st.columns(4)
         col1.metric("Test Case", current.get("test_case_id", "N/A"))
         col2.metric("Pass/Fail", current.get("pass_fail", "UNKNOWN"))
@@ -42,7 +56,9 @@ with tab1:
         metrics = current.get("metrics", {})
         if metrics:
             df = pd.DataFrame(list(metrics.items()), columns=["Metric", "Value"])
-            st.plotly_chart(px.bar(df, x="Metric", y="Value", title="Key Metrics"), use_container_width=True)
+            st.plotly_chart(
+                px.bar(df, x="Metric", y="Value", title="Key Metrics"), use_container_width=True
+            )
 
         st.subheader("Safety Analysis")
         c1, c2, c3 = st.columns(3)
@@ -56,9 +72,16 @@ with tab2:
     if not res:
         st.info("No CrewAI results yet. Run the CrewAI Evaluator first.")
     else:
-        selected = st.selectbox("Select CrewAI run", [f"{r.get('test_case_id','N/A')} - {r.get('timestamp','')}" for r in res])
-        current = next((r for r in res if f"{r.get('test_case_id')} - {r.get('timestamp','')}" == selected), res[0])
-        
+        selected = st.selectbox(
+            "Select CrewAI run",
+            [f"{r.get('test_case_id', 'N/A')} - {r.get('timestamp', '')}" for r in res],
+            key="crew_select",
+        )
+        current = next(
+            (r for r in res if f"{r.get('test_case_id')} - {r.get('timestamp', '')}" == selected),
+            res[0],
+        )
+
         col1, col2, col3, col4 = st.columns(4)
         col1.metric("Test Case", current.get("test_case_id", "N/A"))
         col2.metric("Pass/Fail", current.get("pass_fail", "UNKNOWN"))
@@ -68,7 +91,9 @@ with tab2:
         metrics = current.get("metrics", {})
         if metrics:
             df = pd.DataFrame(list(metrics.items()), columns=["Metric", "Value"])
-            st.plotly_chart(px.bar(df, x="Metric", y="Value", title="Key Metrics"), use_container_width=True)
+            st.plotly_chart(
+                px.bar(df, x="Metric", y="Value", title="Key Metrics"), use_container_width=True
+            )
 
         st.subheader("Safety Analysis")
         c1, c2, c3 = st.columns(3)
@@ -78,4 +103,6 @@ with tab2:
 
 with tab3:
     st.subheader("🔴 Professional Pipeline Results")
-    st.info("Professional results are available in **Leaderboard**, **Responses**, **Pairwise**, and **Metrics** pages.")
+    st.info(
+        "Professional Pipeline results are available in the **Leaderboard**, **Responses**, **Pairwise**, and **Metrics** pages."
+    )

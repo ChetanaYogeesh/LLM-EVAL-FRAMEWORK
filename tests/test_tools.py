@@ -5,29 +5,28 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import json
+
 import pytest
 
 from crewai_tools import (
-    TraceParserTool,
-    CostCalculatorTool,
     SafetyGuardTool,
-    HumanReviewTool,
-    RegressionComparatorTool,
-    MetricCalculatorTool,
+    TraceParserTool,
 )
 
 
 def test_trace_parser():
     tool = TraceParserTool()
-    trace_json = json.dumps({
-        "steps": [
-            {"name": "research", "latency_ms": 2450},
-            {"name": "tool_call", "latency_ms": 800},
-            {"name": "finalize", "latency_ms": 3200}
-        ],
-        "loop_count": 1,
-        "retry_count": 2
-    })
+    trace_json = json.dumps(
+        {
+            "steps": [
+                {"name": "research", "latency_ms": 2450},
+                {"name": "tool_call", "latency_ms": 800},
+                {"name": "finalize", "latency_ms": 3200},
+            ],
+            "loop_count": 1,
+            "retry_count": 2,
+        }
+    )
 
     result = tool._run(trace_json)
     data = json.loads(result)

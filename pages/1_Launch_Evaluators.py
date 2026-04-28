@@ -1,6 +1,7 @@
-import streamlit as st
 import subprocess
 from pathlib import Path
+
+import streamlit as st
 
 st.title("🚀 Launch Evaluators")
 
@@ -13,7 +14,9 @@ with col1:
         with st.spinner("Running Ollama Evaluator..."):
             result = subprocess.run(
                 ["python", str(Path(__file__).parent.parent / "ollama_evaluator.py")],
-                capture_output=True, text=True, cwd=Path(__file__).parent.parent
+                capture_output=True,
+                text=True,
+                cwd=Path(__file__).parent.parent,
             )
             if result.returncode == 0:
                 st.success("✅ Ollama Evaluator completed!")
@@ -29,7 +32,9 @@ with col2:
         with st.spinner("Running CrewAI Evaluator..."):
             result = subprocess.run(
                 ["python", str(Path(__file__).parent.parent / "crewai_evaluator.py")],
-                capture_output=True, text=True, cwd=Path(__file__).parent.parent
+                capture_output=True,
+                text=True,
+                cwd=Path(__file__).parent.parent,
             )
             if result.returncode == 0:
                 st.success("✅ CrewAI Evaluator completed!")

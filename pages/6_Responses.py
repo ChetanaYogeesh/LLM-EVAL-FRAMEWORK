@@ -1,5 +1,5 @@
 import streamlit as st
-import pandas as pd
+
 from sqlite_store import get_all_metrics_df
 
 st.title("🔍 Browse Responses")

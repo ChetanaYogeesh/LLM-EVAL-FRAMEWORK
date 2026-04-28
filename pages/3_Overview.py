@@ -1,6 +1,7 @@
-import streamlit as st
-from sqlite_store import get_leaderboard, get_experiments
 import pandas as pd
+import streamlit as st
+
+from sqlite_store import get_experiments, get_leaderboard
 
 st.title("🏠 Overview")
 

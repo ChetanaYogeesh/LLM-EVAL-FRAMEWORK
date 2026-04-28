@@ -1,5 +1,5 @@
 import streamlit as st
-import pandas as pd
+
 from sqlite_store import get_all_metrics_df
 
 st.title("📊 Metrics Deep Dive")
@@ -16,4 +16,7 @@ else:
         st.bar_chart(df[metric].value_counts().sort_index())
 
     with tab2:
-        st.dataframe(df[["judge_score", "bleu", "rouge", "bertscore"]].corr().round(2), use_container_width=True)
+        st.dataframe(
+            df[["judge_score", "bleu", "rouge", "bertscore"]].corr().round(2),
+            use_container_width=True,
+        )

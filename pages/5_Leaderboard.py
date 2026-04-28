@@ -1,5 +1,6 @@
-import streamlit as st
 import pandas as pd
+import streamlit as st
+
 from sqlite_store import get_leaderboard
 
 st.title("🏆 Model Leaderboard")
@@ -19,7 +20,7 @@ else:
         column_config={
             "Rank": st.column_config.NumberColumn(width="small"),
             "Judge Score": st.column_config.ProgressColumn(min_value=0, max_value=10),
-        }
+        },
     )
 
     st.subheader("Score Comparison")
