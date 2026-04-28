@@ -1,0 +1,52 @@
+[
+  {
+    "prompt": "Explain what machine learning is in simple terms.",
+    "reference": "Machine learning is a branch of AI where systems learn from data to improve their performance without explicit programming.",
+    "category": "general"
+  },
+  {
+    "prompt": "What is the difference between supervised and unsupervised learning?",
+    "reference": "Supervised learning uses labeled data to train models that map inputs to outputs. Unsupervised learning finds patterns in unlabeled data without predefined outcomes.",
+    "category": "general"
+  },
+  {
+    "prompt": "Describe the transformer architecture used in large language models.",
+    "reference": "Transformers use self-attention mechanisms to process sequences in parallel, with encoder-decoder structures and positional encodings to handle sequential data.",
+    "category": "technical"
+  },
+  {
+    "prompt": "What is gradient descent and why is it used in training neural networks?",
+    "reference": "Gradient descent is an optimization algorithm that iteratively adjusts model weights in the direction that minimizes the loss function.",
+    "category": "technical"
+  },
+  {
+    "prompt": "Explain overfitting and how to prevent it.",
+    "reference": "Overfitting is when a model learns training data too well and fails to generalize. Prevention methods include regularization, dropout, cross-validation, and early stopping.",
+    "category": "general"
+  },
+  {
+    "prompt": "What is a REST API?",
+    "reference": "A REST API is a web service that uses HTTP methods to allow clients to perform CRUD operations on resources, following stateless communication principles.",
+    "category": "general"
+  },
+  {
+    "prompt": "How does attention mechanism work in transformers?",
+    "reference": "Attention computes weighted sums of value vectors using similarity scores between query and key vectors, allowing the model to focus on relevant parts of the input.",
+    "category": "technical"
+  },
+  {
+    "prompt": "What is the CAP theorem in distributed systems?",
+    "reference": "CAP theorem states that a distributed system can only guarantee two of three properties simultaneously: Consistency, Availability, and Partition tolerance.",
+    "category": "technical"
+  },
+  {
+    "prompt": "Explain recursion with a simple example.",
+    "reference": "Recursion is when a function calls itself. For example, a factorial function computes n! by calling factorial(n-1) until reaching the base case of 1.",
+    "category": "general"
+  },
+  {
+    "prompt": "What is a binary search tree?",
+    "reference": "A binary search tree is a data structure where each node has at most two children, and all left-subtree values are smaller while all right-subtree values are larger than the node.",
+    "category": "technical"
+  }
+]
