@@ -9,11 +9,10 @@ import traceback
 from typing import Any
 
 import yaml
-from crewai import Agent, Crew, Process, Task
+from crewai import LLM, Agent, Crew, Process, Task
 from dotenv import load_dotenv
 from pydantic import BaseModel
 
-# Import CrewAI tools from dedicated module
 from crewai_tools import (
     CostCalculatorTool,
     HumanReviewTool,
@@ -27,26 +26,34 @@ load_dotenv()
 
 print("🚀 Starting CrewAI Multi-Agent Evaluator...")
 
-OPENROUTER_API_KEY = os.getenv("OPENAI_API_KEY")
 
+def get_llm(agent_name: str) -> LLM:
+    """Return a crewai.LLM object with smart model switching based on agent role.
 
-def get_llm_config(agent_name: str):
-    """Smart model switching based on agent role."""
-    base = {
-        "api_key": OPENROUTER_API_KEY,
-        "base_url": "https://openrouter.ai/api/v1",
-        "temperature": 0.0,
-    }
+    API key is read at call time so module import is always safe even when
+    OPENAI_API_KEY is not set (e.g. during pytest collection of unit tests).
+    """
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise RuntimeError("OPENAI_API_KEY is not set. Add it to your .env file.")
+
     if "coordinator" in agent_name.lower() or "quality" in agent_name.lower():
-        base["model"] = "openrouter/openai/gpt-4o"
-        base["max_tokens"] = 4000
+        model = "openrouter/openai/gpt-4o"
+        max_tokens = 4000
     elif "safety" in agent_name.lower():
-        base["model"] = "openrouter/anthropic/claude-3-haiku"
-        base["max_tokens"] = 3000
+        model = "openrouter/anthropic/claude-3-haiku"
+        max_tokens = 3000
     else:
-        base["model"] = "openrouter/google/gemini-flash-1.5"
-        base["max_tokens"] = 2000
-    return base
+        model = "openrouter/google/gemini-flash-1.5"
+        max_tokens = 2000
+
+    return LLM(
+        model=model,
+        api_key=api_key,
+        base_url="https://openrouter.ai/api/v1",
+        temperature=0.0,
+        max_tokens=max_tokens,
+    )
 
 
 class EvaluationReport(BaseModel):
@@ -64,7 +71,7 @@ class EvaluationReport(BaseModel):
 
 
 class AgentEvaluatorCrew:
-    def __init__(self):
+    def __init__(self) -> None:
         try:
             with open("config/agents.yaml") as f:
                 self.agents_config = yaml.safe_load(f)
@@ -75,45 +82,45 @@ class AgentEvaluatorCrew:
             print(f"❌ Config loading failed: {e}")
             raise
 
-    def create_manager(self):
-        """Create the coordinator as manager (DO NOT add it to agents list)."""
+    def create_manager(self) -> Agent:
+        """Create the coordinator as manager (must NOT be in agents list)."""
         return Agent(
             config=self.agents_config.get("evaluator_coordinator", {}),
             verbose=True,
-            llm=get_llm_config("evaluator_coordinator"),
+            llm=get_llm("evaluator_coordinator"),
             allow_delegation=True,
         )
 
-    def create_worker_agents(self):
-        """Create the specialist agents."""
+    def create_worker_agents(self) -> list[Agent]:
+        """Create the five specialist worker agents."""
         return [
             Agent(
                 config=self.agents_config.get("trace_analyst", {}),
                 verbose=True,
-                llm=get_llm_config("trace_analyst"),
+                llm=get_llm("trace_analyst"),
                 tools=[TraceParserTool()],
             ),
             Agent(
                 config=self.agents_config.get("quality_judge", {}),
                 verbose=True,
-                llm=get_llm_config("quality_judge"),
+                llm=get_llm("quality_judge"),
             ),
             Agent(
                 config=self.agents_config.get("safety_judge", {}),
                 verbose=True,
-                llm=get_llm_config("safety_judge"),
+                llm=get_llm("safety_judge"),
                 tools=[SafetyGuardTool(), HumanReviewTool()],
             ),
             Agent(
                 config=self.agents_config.get("cost_latency_analyst", {}),
                 verbose=True,
-                llm=get_llm_config("cost_latency_analyst"),
+                llm=get_llm("cost_latency_analyst"),
                 tools=[CostCalculatorTool()],
             ),
             Agent(
                 config=self.agents_config.get("regression_monitor", {}),
                 verbose=True,
-                llm=get_llm_config("regression_monitor"),
+                llm=get_llm("regression_monitor"),
                 tools=[RegressionComparatorTool()],
             ),
         ]
@@ -122,15 +129,14 @@ class AgentEvaluatorCrew:
         manager = self.create_manager()
         workers = self.create_worker_agents()
 
-        # Main coordination task assigned to manager
         main_task = Task(
             config=self.tasks_config.get("coordinate_evaluation", {}),
             agent=manager,
-            tools=[MetricCalculatorTool()],  # Final aggregation tool
+            tools=[MetricCalculatorTool()],
         )
 
         return Crew(
-            agents=workers,  # Only workers here
+            agents=workers,
             tasks=[main_task],
             process=Process.hierarchical,
             manager_agent=manager,
@@ -142,6 +148,10 @@ class AgentEvaluatorCrew:
 
 
 if __name__ == "__main__":
+    if not os.getenv("OPENAI_API_KEY"):
+        print("❌ ERROR: OPENAI_API_KEY not found in .env!")
+        raise SystemExit(1)
+
     try:
         evaluator = AgentEvaluatorCrew()
         crew = evaluator.crew()
@@ -162,7 +172,6 @@ if __name__ == "__main__":
         print("🚀 Kicking off hierarchical evaluation...")
         result = crew.kickoff(inputs=test_inputs)
 
-        # Save result
         output = result.model_dump() if hasattr(result, "model_dump") else dict(result)
         with open("evaluation_results.json", "w") as f:
             json.dump(output, f, indent=2, default=str)
