@@ -75,7 +75,11 @@ async def run_evaluation(
     exp_id = create_experiment(
         name=experiment_name,
         description="Automated eval run",
-        config={"dataset": dataset_path, "judge": judge_mode, "real_models": use_real_models},
+        config={
+            "dataset": dataset_path,
+            "judge": judge_mode,
+            "real_models": use_real_models,
+        },
     )
     print(f"[Runner] Experiment #{exp_id}: {experiment_name}")
 
@@ -121,7 +125,9 @@ async def run_evaluation(
             nlp_scores = compute_all_metrics(response_text, reference)
 
             # LLM judge
-            judge_scores = judge_response(prompt_text, response_text, reference, judge=judge_mode)
+            judge_scores = judge_response(
+                prompt_text, response_text, reference, judge=judge_mode
+            )
 
             combined_scores = {
                 **nlp_scores,
@@ -171,7 +177,9 @@ async def run_evaluation(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="LLM Evaluation Runner")
-    parser.add_argument("--real", action="store_true", help="Use real API models instead of mocks")
+    parser.add_argument(
+        "--real", action="store_true", help="Use real API models instead of mocks"
+    )
     parser.add_argument(
         "--dataset", default="sample_prompts.json", help="Path to prompt dataset JSON"
     )
@@ -182,7 +190,9 @@ if __name__ == "__main__":
         help="Judge type",
     )
     parser.add_argument("--name", default="eval_run", help="Experiment name")
-    parser.add_argument("--quiet", action="store_true", help="Suppress per-prompt output")
+    parser.add_argument(
+        "--quiet", action="store_true", help="Suppress per-prompt output"
+    )
     args = parser.parse_args()
 
     asyncio.run(

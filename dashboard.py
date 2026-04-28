@@ -165,7 +165,9 @@ def run_eval_pipeline(prompts_data, use_real, judge_mode, exp_name, progress_cb=
 
         if len(runner_names) >= 2:
             ma, mb = runner_names[0], runner_names[1]
-            rpt = generate_comparison_report(prompt_text, resp_texts[ma], resp_texts[mb], reference)
+            rpt = generate_comparison_report(
+                prompt_text, resp_texts[ma], resp_texts[mb], reference
+            )
             insert_pairwise(
                 prompt_id,
                 model_ids[ma],
@@ -178,7 +180,9 @@ def run_eval_pipeline(prompts_data, use_real, judge_mode, exp_name, progress_cb=
             pairwise_reports.append(rpt)
 
         if progress_cb:
-            progress_cb((i + 1) / total, f"Processed {i + 1}/{total}: {prompt_text[:50]}…")
+            progress_cb(
+                (i + 1) / total, f"Processed {i + 1}/{total}: {prompt_text[:50]}…"
+            )
 
     return runner_names, pairwise_reports
 
@@ -215,7 +219,9 @@ if page == "🚀 Launch Evaluators":
     with col1:
         st.markdown("### 🟢 Ollama Evaluator")
         st.caption("Fast • Local • No API keys required")
-        if st.button("▶️ Run Ollama Evaluator", type="primary", use_container_width=True):
+        if st.button(
+            "▶️ Run Ollama Evaluator", type="primary", use_container_width=True
+        ):
             with st.spinner("Running Ollama Evaluator..."):
                 try:
                     result = subprocess.run(
@@ -237,7 +243,9 @@ if page == "🚀 Launch Evaluators":
     with col2:
         st.markdown("### 🔵 CrewAI Evaluator")
         st.caption("Multi-agent • Hierarchical reasoning")
-        if st.button("▶️ Run CrewAI Evaluator", type="primary", use_container_width=True):
+        if st.button(
+            "▶️ Run CrewAI Evaluator", type="primary", use_container_width=True
+        ):
             with st.spinner("Running CrewAI Evaluator..."):
                 try:
                     result = subprocess.run(
@@ -259,7 +267,9 @@ if page == "🚀 Launch Evaluators":
     with col3:
         st.markdown("### 🔴 Professional Pipeline")
         st.caption("Full SQLite • Multi-model • Advanced scoring")
-        if st.button("▶️ Run Professional Pipeline", type="primary", use_container_width=True):
+        if st.button(
+            "▶️ Run Professional Pipeline", type="primary", use_container_width=True
+        ):
             st.info(
                 "Go to the **Run Eval** page in the sidebar to launch the full professional pipeline."
             )
@@ -281,7 +291,10 @@ elif page == "🔍 Results":
         else:
             selected = st.selectbox(
                 "Select run",
-                [f"{r.get('test_case_id', 'N/A')} - {r.get('timestamp', '')}" for r in ollama_res],
+                [
+                    f"{r.get('test_case_id', 'N/A')} - {r.get('timestamp', '')}"
+                    for r in ollama_res
+                ],
             )
             current = next(
                 (
@@ -303,7 +316,10 @@ elif page == "🔍 Results":
                 st.plotly_chart(fig, use_container_width=True)
             st.subheader("Safety Analysis")
             c1, c2, c3 = st.columns(3)
-            c1.metric("Hallucination", "Yes" if current.get("hallucination_detected") else "No")
+            c1.metric(
+                "Hallucination",
+                "Yes" if current.get("hallucination_detected") else "No",
+            )
             c2.metric("Bias", "Yes" if current.get("bias_detected") else "No")
             c3.metric("Toxicity", "Yes" if current.get("toxicity_detected") else "No")
 
@@ -315,7 +331,10 @@ elif page == "🔍 Results":
         else:
             selected = st.selectbox(
                 "Select run",
-                [f"{r.get('test_case_id', 'N/A')} - {r.get('timestamp', '')}" for r in crew_res],
+                [
+                    f"{r.get('test_case_id', 'N/A')} - {r.get('timestamp', '')}"
+                    for r in crew_res
+                ],
             )
             current = next(
                 (
@@ -337,7 +356,10 @@ elif page == "🔍 Results":
                 st.plotly_chart(fig, use_container_width=True)
             st.subheader("Safety Analysis")
             c1, c2, c3 = st.columns(3)
-            c1.metric("Hallucination", "Yes" if current.get("hallucination_detected") else "No")
+            c1.metric(
+                "Hallucination",
+                "Yes" if current.get("hallucination_detected") else "No",
+            )
             c2.metric("Bias", "Yes" if current.get("bias_detected") else "No")
             c3.metric("Toxicity", "Yes" if current.get("toxicity_detected") else "No")
 

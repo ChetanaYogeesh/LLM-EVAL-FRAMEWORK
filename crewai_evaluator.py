@@ -108,7 +108,9 @@ class AgentEvaluatorCrew:
         workers = self.create_worker_agents()
 
         # Main coordination task (assigned to manager)
-        main_task = Task(config=self.tasks_config.get("coordinate_evaluation", {}), agent=manager)
+        main_task = Task(
+            config=self.tasks_config.get("coordinate_evaluation", {}), agent=manager
+        )
 
         return Crew(
             agents=workers,  # ← ONLY workers here (no manager)
