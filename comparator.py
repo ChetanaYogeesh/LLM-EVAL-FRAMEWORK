@@ -55,9 +55,7 @@ def compare_clarity(response_a: str, response_b: str) -> tuple[str, int, int]:
     return winner, score_a, score_b
 
 
-def compare_accuracy(
-    response_a: str, response_b: str, reference: str
-) -> tuple[str, int, int]:
+def compare_accuracy(response_a: str, response_b: str, reference: str) -> tuple[str, int, int]:
     """
     Compares responses against a reference answer.
 
@@ -196,9 +194,7 @@ def score_tone(text: str) -> int:
     return max(1, min(10, score))
 
 
-def score_response(
-    response: str, criteria: list[str], reference: str = ""
-) -> dict[str, int]:
+def score_response(response: str, criteria: list[str], reference: str = "") -> dict[str, int]:
     """Score a single response across multiple criteria."""
     scores = {}
     for criterion in criteria:
@@ -223,9 +219,7 @@ def calculate_overall_score(
         return 0.0
     if weights is None:
         weights = {k: 1 / len(criterion_scores) for k in criterion_scores}
-    total = sum(
-        score * weights.get(crit, 0) for crit, score in criterion_scores.items()
-    )
+    total = sum(score * weights.get(crit, 0) for crit, score in criterion_scores.items())
     total_weight = sum(weights.get(crit, 0) for crit in criterion_scores)
     return total / total_weight if total_weight else 0.0
 
@@ -292,8 +286,7 @@ def format_report(report: dict) -> str:
         f"  {'Criterion':15s} {'Response A':12s} {'Response B':12s}",
     ]
     all_criteria = set(
-        list(report["detailed_scores_a"].keys())
-        + list(report["detailed_scores_b"].keys())
+        list(report["detailed_scores_a"].keys()) + list(report["detailed_scores_b"].keys())
     )
     for crit in sorted(all_criteria):
         a_val = report["detailed_scores_a"].get(crit, "-")

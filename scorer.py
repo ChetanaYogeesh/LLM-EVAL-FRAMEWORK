@@ -27,9 +27,7 @@ def compute_bleu(response: str, reference: str) -> float:
         ref_tokens = reference.lower().split()
         hyp_tokens = response.lower().split()
         smoother = SmoothingFunction().method1
-        return round(
-            sentence_bleu([ref_tokens], hyp_tokens, smoothing_function=smoother), 4
-        )
+        return round(sentence_bleu([ref_tokens], hyp_tokens, smoothing_function=smoother), 4)
     except ImportError:
         return _fallback_overlap(response, reference)
 

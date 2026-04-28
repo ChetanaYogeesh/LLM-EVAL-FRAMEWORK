@@ -111,9 +111,7 @@ def insert_prompt(
 def get_prompts(category: str | None = None, db_path: Path = DB_PATH) -> list[dict]:
     with get_connection(db_path) as conn:
         if category:
-            rows = conn.execute(
-                "SELECT * FROM prompts WHERE category = ?", (category,)
-            ).fetchall()
+            rows = conn.execute("SELECT * FROM prompts WHERE category = ?", (category,)).fetchall()
         else:
             rows = conn.execute("SELECT * FROM prompts").fetchall()
         return [dict(r) for r in rows]
@@ -122,9 +120,7 @@ def get_prompts(category: str | None = None, db_path: Path = DB_PATH) -> list[di
 # ── Responses ─────────────────────────────────────────────────────────────────
 
 
-def insert_response(
-    model_id: int, prompt_id: int, response: str, db_path: Path = DB_PATH
-) -> int:
+def insert_response(model_id: int, prompt_id: int, response: str, db_path: Path = DB_PATH) -> int:
     with get_connection(db_path) as conn:
         cur = conn.execute(
             "INSERT INTO responses (model_id, prompt_id, response) VALUES (?,?,?)",
