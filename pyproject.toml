@@ -5,6 +5,8 @@ description = "LLM Evaluation Framework with Ollama, CrewAI, and Professional Pi
 requires-python = ">=3.11"
 dependencies = []
 
+
+
 [tool.pytest.ini_options]
 addopts = "-v --tb=short"
 testpaths = ["tests"]
@@ -76,3 +78,4 @@ known-first-party = ["tools", "eval_crew", "eval_simple", "dashboard", "ollama_e
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
+
