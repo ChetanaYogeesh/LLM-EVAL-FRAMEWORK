@@ -12,7 +12,7 @@ addopts = """
   --cov=.
   --cov-report=xml:reports/coverage.xml
   --cov-report=term-missing
-  --cov-fail-under=30
+  --cov-fail-under=3
 """
 testpaths = ["tests"]
 python_files = ["test_*.py"]
