@@ -1,9 +1,17 @@
 [tool.pytest.ini_options]
-testpaths      = ["tests"]
-python_files   = ["test_*.py"]
+addopts = "-v --tb=short"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 pythonpath     = ["."]          # adds repo root to sys.path so 'import tools' works
+
+[tool.coverage.run]
+source = ["."]
+omit = ["tests/*", "env/*", "*.venv/*"]
+
+[tool.coverage.report]
+show_missing = true
 markers = [
     "integration: marks tests as integration tests (require live API keys; deselect with '-m not integration')",
 ]
