@@ -38,10 +38,10 @@ def get_llm(agent_name: str) -> LLM:
         raise RuntimeError("OPENAI_API_KEY is not set. Add it to your .env file.")
 
     if "coordinator" in agent_name.lower() or "quality" in agent_name.lower():
-        model = "openrouter/openai/gpt-4o"
+        model = "openrouter/meta-llama/llama-3.1-8b-instruct:free"  # "openrouter/openai/gpt-4o"
         max_tokens = 1000
     elif "safety" in agent_name.lower():
-        model = "openrouter/anthropic/claude-3-haiku"
+        model = "openrouter/meta-llama/llama-3.1-8b-instruct:free"  # "openrouter/anthropic/claude-3-haiku"
         max_tokens = 800
     else:
         model = "openrouter/meta-llama/llama-3.1-8b-instruct:free"  # "openrouter/google/gemini-flash-1.5"
