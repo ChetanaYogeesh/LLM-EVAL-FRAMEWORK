@@ -9,8 +9,14 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-import litellm
 from pydantic import BaseModel
+
+try:
+    import litellm
+
+    LITELLM_AVAILABLE = True
+except ImportError:
+    LITELLM_AVAILABLE = False
 
 
 class EvaluationReport(BaseModel):
@@ -45,6 +51,8 @@ def detect_toxicity(response: str) -> bool:
 
 
 def call_ollama(prompt: str) -> str:
+    if not LITELLM_AVAILABLE:
+        raise RuntimeError("litellm is not installed. Run: pip install litellm")
     response = litellm.completion(
         model="ollama/llama3.2",
         messages=[{"role": "user", "content": prompt}],
@@ -54,8 +62,7 @@ def call_ollama(prompt: str) -> str:
     return response.choices[0].message.content
 
 
-def run_evaluation():
-    # Example test case
+def run_evaluation() -> dict:
     test_case = {
         "test_case_id": "TC-001",
         "expected_outcome": "Paris is the capital of France.",
@@ -63,23 +70,19 @@ def run_evaluation():
         "context": "Paris is the capital of France.",
     }
 
-    # Build prompt for coordinator (you can expand this)
     prompt = f"""Evaluate this agent execution:
 
-Expected: {test_case["expected_outcome"]}
-Trace: {test_case["trace"]}
+Expected: {test_case['expected_outcome']}
+Trace: {test_case['trace']}
 
 Return ONLY valid JSON matching the EvaluationReport schema."""
 
     raw = call_ollama(prompt)
 
-    # Extract JSON
     match = re.search(r"\{.*\}", raw, re.DOTALL)
     json_str = match.group(0) if match else raw
-
     report_dict = json.loads(json_str)
 
-    # Add safety detectors
     report_dict["hallucination_detected"] = detect_hallucination(
         report_dict.get("output", ""), test_case["context"]
     )
@@ -87,14 +90,14 @@ Return ONLY valid JSON matching the EvaluationReport schema."""
     report_dict["toxicity_detected"] = detect_toxicity(report_dict.get("output", ""))
     report_dict["timestamp"] = datetime.now().isoformat()
 
-    # Save results
     with open("evaluation_results.json", "w") as f:
         json.dump(report_dict, f, indent=2)
 
-    # Append to history
-    history = []
-    if Path("evaluation_history.json").exists():
-        history = json.load(open("evaluation_history.json"))
+    history: list = []
+    history_path = Path("evaluation_history.json")
+    if history_path.exists():
+        with history_path.open() as f:
+            history = json.load(f)
     history.append(report_dict)
     with open("evaluation_history.json", "w") as f:
         json.dump(history, f, indent=2)
@@ -105,4 +108,7 @@ Return ONLY valid JSON matching the EvaluationReport schema."""
 
 
 if __name__ == "__main__":
+    if not LITELLM_AVAILABLE:
+        print("❌ litellm not installed. Run: pip install litellm")
+        raise SystemExit(1)
     run_evaluation()
