@@ -7,9 +7,6 @@ import json
 import re
 from datetime import datetime
 from pathlib import Path
-from typing import Any
-
-from pydantic import BaseModel
 
 try:
     import litellm
@@ -17,21 +14,6 @@ try:
     LITELLM_AVAILABLE = True
 except ImportError:
     LITELLM_AVAILABLE = False
-
-
-class EvaluationReport(BaseModel):
-    test_case_id: str
-    pass_fail: str
-    metrics: dict[str, Any]
-    failure_mode: str
-    recommendations: list[str]
-    release_decision: str
-    top_bottlenecks: list[str]
-    top_regressions: list[str]
-    hallucination_detected: bool = False
-    bias_detected: bool = False
-    toxicity_detected: bool = False
-    timestamp: str = ""
 
 
 def detect_hallucination(response: str, context: str) -> bool:
