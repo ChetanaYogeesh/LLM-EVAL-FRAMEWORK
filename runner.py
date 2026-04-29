@@ -21,11 +21,13 @@ from sqlite_store import (
 )
 
 
+# runner.py line ~55 — ensure signature matches
 async def run_evaluation(
     dataset_path: str = "sample_prompts.json",
     use_real_models: bool = False,
     judge_mode: str = "auto",
     experiment_name: str = "default_run",
+    verbose: bool = True,  # ← add this if missing
 ):
     init_db()
     create_experiment(experiment_name, config={"real": use_real_models, "judge": judge_mode})
