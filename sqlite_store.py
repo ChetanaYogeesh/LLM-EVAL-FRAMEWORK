@@ -9,7 +9,9 @@ import json
 import sqlite3
 from pathlib import Path
 
-DB_PATH = Path(__file__).parent.parent / "evals.db"
+import pandas as pd
+
+DB_PATH = Path(__file__).parent / "evals.db"
 
 
 def get_connection(db_path: Path = DB_PATH) -> sqlite3.Connection:
@@ -18,7 +20,7 @@ def get_connection(db_path: Path = DB_PATH) -> sqlite3.Connection:
     return conn
 
 
-def init_db(db_path: Path = DB_PATH):
+def init_db(db_path: Path = DB_PATH) -> None:
     """Create all tables if they don't exist."""
     with get_connection(db_path) as conn:
         conn.executescript("""
@@ -98,7 +100,10 @@ def list_models(db_path: Path = DB_PATH) -> list[dict]:
 
 
 def insert_prompt(
-    prompt: str, reference: str = "", category: str = "general", db_path: Path = DB_PATH
+    prompt: str,
+    reference: str = "",
+    category: str = "general",
+    db_path: Path = DB_PATH,
 ) -> int:
     with get_connection(db_path) as conn:
         cur = conn.execute(
@@ -132,11 +137,12 @@ def insert_response(model_id: int, prompt_id: int, response: str, db_path: Path 
 # ── Metrics ───────────────────────────────────────────────────────────────────
 
 
-def insert_metrics(response_id: int, scores: dict, db_path: Path = DB_PATH):
+def insert_metrics(response_id: int, scores: dict, db_path: Path = DB_PATH) -> None:
     with get_connection(db_path) as conn:
         conn.execute(
             """INSERT OR REPLACE INTO metrics
-               (response_id, bleu, rouge, bertscore, judge_score, clarity, completeness, conciseness, tone)
+               (response_id, bleu, rouge, bertscore, judge_score,
+                clarity, completeness, conciseness, tone)
                VALUES (:response_id, :bleu, :rouge, :bertscore, :judge_score,
                        :clarity, :completeness, :conciseness, :tone)""",
             {
@@ -198,8 +204,8 @@ def get_leaderboard(db_path: Path = DB_PATH) -> list[dict]:
                 ROUND(AVG(mt.completeness), 2)  AS avg_completeness,
                 COUNT(r.id)                      AS total_responses
             FROM metrics mt
-            JOIN responses r  ON r.id  = mt.response_id
-            JOIN models    m  ON m.id  = r.model_id
+            JOIN responses r ON r.id = mt.response_id
+            JOIN models    m ON m.id = r.model_id
             GROUP BY m.name
             ORDER BY avg_judge_score DESC
         """).fetchall()
@@ -210,7 +216,10 @@ def get_leaderboard(db_path: Path = DB_PATH) -> list[dict]:
 
 
 def create_experiment(
-    name: str, description: str = "", config: dict = None, db_path: Path = DB_PATH
+    name: str,
+    description: str = "",
+    config: dict | None = None,
+    db_path: Path = DB_PATH,
 ) -> int:
     with get_connection(db_path) as conn:
         cur = conn.execute(
@@ -218,3 +227,45 @@ def create_experiment(
             (name, description, json.dumps(config or {})),
         )
         return cur.lastrowid
+
+
+def get_experiments(db_path: Path = DB_PATH) -> list[dict]:
+    """Return all experiments ordered by most recent first."""
+    with get_connection(db_path) as conn:
+        rows = conn.execute("SELECT * FROM experiments ORDER BY created_at DESC").fetchall()
+        return [dict(r) for r in rows]
+
+
+# ── DataFrame helpers (used by dashboard) ─────────────────────────────────────
+
+
+def get_all_metrics_df(db_path: Path = DB_PATH) -> pd.DataFrame:
+    """Return all metrics joined with model, prompt, and response as a DataFrame."""
+    with get_connection(db_path) as conn:
+        rows = conn.execute("""
+            SELECT m.name AS model, p.prompt, p.category, p.reference_answer,
+                   r.response, mt.judge_score, mt.bleu, mt.rouge, mt.bertscore,
+                   mt.clarity, mt.completeness, mt.conciseness, mt.tone,
+                   r.created_at
+            FROM metrics mt
+            JOIN responses r ON r.id = mt.response_id
+            JOIN models    m ON m.id = r.model_id
+            JOIN prompts   p ON p.id = r.prompt_id
+        """).fetchall()
+        return pd.DataFrame([dict(r) for r in rows]) if rows else pd.DataFrame()
+
+
+def get_pairwise_df(db_path: Path = DB_PATH) -> pd.DataFrame:
+    """Return all pairwise results joined with model and prompt info as a DataFrame."""
+    with get_connection(db_path) as conn:
+        rows = conn.execute("""
+            SELECT pr.winner, pr.score_a, pr.score_b, pr.breakdown, pr.created_at,
+                   p.prompt, p.category,
+                   ma.name AS model_a, mb.name AS model_b
+            FROM pairwise_results pr
+            JOIN prompts p  ON p.id  = pr.prompt_id
+            JOIN models  ma ON ma.id = pr.model_a_id
+            JOIN models  mb ON mb.id = pr.model_b_id
+            ORDER BY pr.created_at DESC
+        """).fetchall()
+        return pd.DataFrame([dict(r) for r in rows]) if rows else pd.DataFrame()
