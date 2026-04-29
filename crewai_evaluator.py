@@ -44,7 +44,7 @@ def get_llm(agent_name: str) -> LLM:
         model = "openrouter/anthropic/claude-3-haiku"
         max_tokens = 800
     else:
-        model = "openrouter/google/gemini-flash-1.5"
+        model = "openrouter/meta-llama/llama-3.1-8b-instruct:free"  # "openrouter/google/gemini-flash-1.5"
         max_tokens = 800
 
     return LLM(
