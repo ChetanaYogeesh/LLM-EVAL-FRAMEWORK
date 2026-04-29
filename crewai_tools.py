@@ -9,6 +9,18 @@ import json
 from crewai.tools import BaseTool
 
 
+def _safe_parse(value: str | dict) -> dict:
+    """Parse JSON string or return dict as-is. Returns {} on failure."""
+    if isinstance(value, dict):
+        return value
+    if not value or not value.strip():
+        return {}
+    try:
+        return json.loads(value)
+    except (json.JSONDecodeError, TypeError):
+        return {}
+
+
 class TraceParserTool(BaseTool):
     name: str = "trace_parser"
     description: str = (
@@ -16,7 +28,7 @@ class TraceParserTool(BaseTool):
     )
 
     def _run(self, trace_json: str) -> str:
-        trace = json.loads(trace_json)
+        trace = _safe_parse(trace_json)
         steps = trace.get("steps", [])
 
         analysis = {
@@ -24,7 +36,7 @@ class TraceParserTool(BaseTool):
             "loop_count": trace.get("loop_count", 0),
             "retry_count": trace.get("retry_count", 0),
             "handoff_count": len([s for s in steps if s.get("type") == "handoff"]),
-            "per_step_latency_ms": {s.get("name"): s.get("latency_ms", 0) for s in steps},
+            "per_step_latency_ms": {s.get("name", "?"): s.get("latency_ms", 0) for s in steps},
             "bottlenecks": sorted(
                 [s for s in steps if s.get("latency_ms", 0) > 2000],
                 key=lambda x: x.get("latency_ms", 0),
@@ -41,6 +53,9 @@ class CostCalculatorTool(BaseTool):
     def _run(self, token_usage: dict, success: bool = True, model: str = "gpt-4o") -> str:
         pricing = {"gpt-4o": {"input": 2.50, "output": 10.00}}
         p = pricing.get(model, {"input": 5.0, "output": 15.0})
+
+        if isinstance(token_usage, str):
+            token_usage = _safe_parse(token_usage)
 
         input_cost = (token_usage.get("prompt_tokens", 0) / 1_000_000) * p["input"]
         output_cost = (token_usage.get("completion_tokens", 0) / 1_000_000) * p["output"]
@@ -77,7 +92,7 @@ class HumanReviewTool(BaseTool):
     description: str = "Escalate high-risk cases for human review."
 
     def _run(self, case_id: str, reason: str) -> str:
-        return f"🚨 HUMAN REVIEW REQUESTED for {case_id}\nReason: {reason}"
+        return json.dumps({"status": "escalated", "case_id": case_id, "reason": reason})
 
 
 class RegressionComparatorTool(BaseTool):
@@ -85,6 +100,11 @@ class RegressionComparatorTool(BaseTool):
     description: str = "Compare current metrics against baseline and flag regressions."
 
     def _run(self, current: dict, baseline: dict) -> str:
+        if isinstance(current, str):
+            current = _safe_parse(current)
+        if isinstance(baseline, str):
+            baseline = _safe_parse(baseline)
+
         flags = []
         for key in ["safety_violation_rate", "p95_latency_ms", "cost_per_successful_task_usd"]:
             if key in current and key in baseline:
@@ -110,13 +130,17 @@ class MetricCalculatorTool(BaseTool):
         expected_outcome: str,
         actual_final_answer: str,
     ) -> str:
-        trace = json.loads(trace_analysis)
-        steps = trace.get("steps", [])
-        latencies = [
-            s.get("latency_ms", 0) for s in steps if isinstance(s.get("latency_ms"), int | float)
-        ]
-        latencies.sort()
+        # Safely parse all inputs — agent may pass plain text instead of JSON
+        trace = _safe_parse(trace_analysis)
+        if isinstance(quality_scores, str):
+            quality_scores = _safe_parse(quality_scores)
+        if isinstance(safety_result, str):
+            safety_result = _safe_parse(safety_result)
+        if isinstance(cost_latency_result, str):
+            cost_latency_result = _safe_parse(cost_latency_result)
 
+        steps = trace.get("steps", [])
+        latencies = sorted([s.get("latency_ms", 0) for s in steps if s.get("latency_ms")])
         n = len(latencies)
         p95 = latencies[int(n * 0.95)] if n > 0 else 0
 
