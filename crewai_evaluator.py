@@ -178,7 +178,15 @@ if __name__ == "__main__":
 
         print("✅ Evaluation completed successfully!")
         print("📄 Results saved to evaluation_results.json")
-        print(f"Pass/Fail: {output.get('pass_fail', 'N/A')}")
+        if isinstance(output, dict):
+            pass_fail = output.get("pass_fail") or output.get("EvaluationReport", {}).get(
+                "pass_fail", "N/A"
+            )
+        elif hasattr(output, "pass_fail"):
+            pass_fail = output.pass_fail
+        else:
+            pass_fail = "N/A"
+        print(f"Pass/Fail: {pass_fail}")
 
     except Exception as e:
         print(f"❌ Error during crew execution: {e}")
