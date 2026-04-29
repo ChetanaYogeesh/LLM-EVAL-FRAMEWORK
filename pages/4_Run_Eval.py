@@ -1,4 +1,3 @@
-import asyncio
 import json
 from datetime import datetime
 from pathlib import Path
@@ -55,22 +54,29 @@ if st.button("▶️ Start Evaluation", type="primary"):
     if not prompts_data:
         st.error("Please provide at least one prompt.")
     else:
-        # Write prompts to a temp file so run_evaluation can load them
         tmp_path = Path("_tmp_prompts.json")
         with tmp_path.open("w") as f:
             json.dump(prompts_data, f)
 
         with st.spinner("Running full professional evaluation pipeline..."):
             try:
-                asyncio.run(
-                    run_evaluation(
-                        dataset_path=str(tmp_path),
-                        use_real_models=use_real,
-                        judge_mode=judge_mode,
-                        experiment_name=exp_name,
-                        verbose=False,
+                import asyncio
+
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    loop.run_until_complete(
+                        run_evaluation(
+                            dataset_path=str(tmp_path),
+                            use_real_models=use_real,
+                            judge_mode=judge_mode,
+                            experiment_name=exp_name,
+                            verbose=False,
+                        )
                     )
-                )
+                finally:
+                    loop.close()
+
                 tmp_path.unlink(missing_ok=True)
                 st.success(
                     f"✅ Evaluation complete! {len(prompts_data)} prompts evaluated. "
