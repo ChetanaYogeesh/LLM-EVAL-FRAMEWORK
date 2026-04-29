@@ -1,9 +1,10 @@
 """
 ollama_evaluator.py
-→ Direct Ollama evaluator (lightweight, reliable, no CrewAI dependency)
+→ Evaluator that uses Ollama locally, falls back to OpenRouter on Cloud.
 """
 
 import json
+import os
 import re
 from datetime import datetime
 from pathlib import Path
@@ -14,6 +15,49 @@ try:
     LITELLM_AVAILABLE = True
 except ImportError:
     LITELLM_AVAILABLE = False
+
+
+def _ollama_reachable() -> bool:
+    """Check if local Ollama server is running."""
+    try:
+        import httpx
+
+        httpx.get("http://localhost:11434", timeout=2)
+        return True
+    except Exception:
+        return False
+
+
+def call_llm(prompt: str) -> str:
+    """Call Ollama locally, fall back to OpenRouter if unavailable."""
+    if not LITELLM_AVAILABLE:
+        raise RuntimeError("litellm is not installed. Run: pip install litellm")
+
+    if _ollama_reachable():
+        response = litellm.completion(
+            model="ollama/llama3.2",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.0,
+            max_tokens=2000,
+        )
+    else:
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            raise RuntimeError(
+                "Ollama not reachable and OPENAI_API_KEY not set. "
+                "Either run Ollama locally or set OPENAI_API_KEY for OpenRouter fallback."
+            )
+        print("⚠️  Ollama not reachable — falling back to OpenRouter gpt-4o-mini")
+        response = litellm.completion(
+            model="openrouter/openai/gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            api_key=api_key,
+            base_url="https://openrouter.ai/api/v1",
+            temperature=0.0,
+            max_tokens=2000,
+        )
+
+    return response.choices[0].message.content
 
 
 def detect_hallucination(response: str, context: str) -> bool:
@@ -32,18 +76,6 @@ def detect_toxicity(response: str) -> bool:
     return any(kw in response.lower() for kw in toxic_keywords)
 
 
-def call_ollama(prompt: str) -> str:
-    if not LITELLM_AVAILABLE:
-        raise RuntimeError("litellm is not installed. Run: pip install litellm")
-    response = litellm.completion(
-        model="ollama/llama3.2",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.0,
-        max_tokens=2000,
-    )
-    return response.choices[0].message.content
-
-
 def run_evaluation() -> dict:
     test_case = {
         "test_case_id": "TC-001",
@@ -57,13 +89,27 @@ def run_evaluation() -> dict:
 Expected: {test_case["expected_outcome"]}
 Trace: {test_case["trace"]}
 
-Return ONLY valid JSON matching the EvaluationReport schema."""
+Return ONLY valid JSON with these keys:
+test_case_id, pass_fail, failure_mode, release_decision,
+recommendations (list), top_bottlenecks (list), top_regressions (list)"""
 
-    raw = call_ollama(prompt)
+    raw = call_llm(prompt)
 
     match = re.search(r"\{.*\}", raw, re.DOTALL)
     json_str = match.group(0) if match else raw
-    report_dict = json.loads(json_str)
+
+    try:
+        report_dict = json.loads(json_str)
+    except json.JSONDecodeError:
+        report_dict = {
+            "test_case_id": test_case["test_case_id"],
+            "pass_fail": "UNKNOWN",
+            "failure_mode": "JSON parse error",
+            "release_decision": "hold",
+            "recommendations": [],
+            "top_bottlenecks": [],
+            "top_regressions": [],
+        }
 
     report_dict["hallucination_detected"] = detect_hallucination(
         report_dict.get("output", ""), test_case["context"]
@@ -84,7 +130,7 @@ Return ONLY valid JSON matching the EvaluationReport schema."""
     with open("evaluation_history.json", "w") as f:
         json.dump(history, f, indent=2)
 
-    print("✅ Ollama evaluation completed!")
+    print("✅ Evaluation completed!")
     print(f"Pass/Fail: {report_dict.get('pass_fail')}")
     return report_dict
 
