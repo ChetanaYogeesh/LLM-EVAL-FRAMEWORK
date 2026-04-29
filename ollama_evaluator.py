@@ -72,8 +72,8 @@ def run_evaluation() -> dict:
 
     prompt = f"""Evaluate this agent execution:
 
-Expected: {test_case['expected_outcome']}
-Trace: {test_case['trace']}
+Expected: {test_case["expected_outcome"]}
+Trace: {test_case["trace"]}
 
 Return ONLY valid JSON matching the EvaluationReport schema."""
 

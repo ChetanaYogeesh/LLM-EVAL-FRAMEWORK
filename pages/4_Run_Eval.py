@@ -71,7 +71,6 @@ if st.button("▶️ Start Evaluation", type="primary"):
                             use_real_models=use_real,
                             judge_mode=judge_mode,
                             experiment_name=exp_name,
-                            verbose=False,
                         )
                     )
                 finally:

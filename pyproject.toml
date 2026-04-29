@@ -3,7 +3,6 @@ name = "llm-eval-framework"
 version = "0.1.0"
 description = "LLM Evaluation Framework with Ollama, CrewAI, and Professional Pipeline"
 requires-python = ">=3.11"
-dependencies = []
 
 
 [tool.pytest.ini_options]
