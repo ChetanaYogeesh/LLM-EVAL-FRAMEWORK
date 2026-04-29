@@ -39,13 +39,13 @@ def get_llm(agent_name: str) -> LLM:
 
     if "coordinator" in agent_name.lower() or "quality" in agent_name.lower():
         model = "openrouter/openai/gpt-4o"
-        max_tokens = 4000
+        max_tokens = 1000
     elif "safety" in agent_name.lower():
         model = "openrouter/anthropic/claude-3-haiku"
-        max_tokens = 3000
+        max_tokens = 800
     else:
         model = "openrouter/google/gemini-flash-1.5"
-        max_tokens = 2000
+        max_tokens = 800
 
     return LLM(
         model=model,
