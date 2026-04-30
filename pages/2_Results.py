@@ -17,27 +17,22 @@ st.markdown(
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Sora:wght@300;400;600;700&display=swap');
 html, body, [class*="css"] { font-family: 'Sora', sans-serif; }
 
-.page-header { font-family:'Sora',sans-serif; font-size:1.8rem; font-weight:700; color:#e6edf3; margin-bottom:4px; }
-.page-sub    { color:#6e7681; font-size:0.9rem; margin-bottom:28px; }
+.page-header { font-size:1.6rem; font-weight:700; color:#e6edf3; margin-bottom:4px; }
+.page-sub    { color:#6e7681; font-size:0.88rem; margin-bottom:24px; }
 
-.result-card {
-    background:#0d1117; border:1px solid #21262d; border-radius:10px;
-    padding:20px 20px 16px; margin-bottom:16px;
-}
-.kpi-label { font-family:'JetBrains Mono',monospace; font-size:0.7rem; color:#6e7681; letter-spacing:0.08em; text-transform:uppercase; margin-bottom:4px; }
-.kpi-value { font-size:1.4rem; font-weight:700; color:#e6edf3; }
-.kpi-pass  { color:#3fb950; }
-.kpi-fail  { color:#f85149; }
-.kpi-unknown { color:#8b949e; }
+.kpi-block  { background:#0d1117; border:1px solid #21262d; border-radius:8px; padding:14px 16px; }
+.kpi-label  { font-family:'JetBrains Mono',monospace; font-size:0.65rem; color:#6e7681; letter-spacing:0.08em; text-transform:uppercase; margin-bottom:4px; }
+.kpi-value  { font-size:1.5rem; font-weight:700; color:#e6edf3; }
+.kpi-pass   { color:#3fb950; }
+.kpi-fail   { color:#f85149; }
 
-.safety-ok   { color:#3fb950; font-weight:600; }
-.safety-flag { color:#f85149; font-weight:600; }
+.safety-ok   { color:#3fb950; font-weight:600; font-size:0.9rem; }
+.safety-flag { color:#f85149; font-weight:600; font-size:0.9rem; }
 
-.empty-state {
-    text-align:center; padding:60px 20px;
-    color:#6e7681; font-size:0.95rem;
-}
-.empty-icon { font-size:2.5rem; margin-bottom:12px; }
+.recs-item  { padding:4px 0; font-size:0.85rem; color:#8b949e; border-bottom:1px solid #21262d; }
+
+.empty-box  { text-align:center; padding:48px 20px; color:#6e7681; }
+.empty-icon { font-size:2rem; margin-bottom:8px; }
 </style>
 """,
     unsafe_allow_html=True,
@@ -45,15 +40,18 @@ html, body, [class*="css"] { font-family: 'Sora', sans-serif; }
 
 st.markdown('<div class="page-header">🔍 Evaluation Results</div>', unsafe_allow_html=True)
 st.markdown(
-    '<div class="page-sub">Browse results from Ollama, CrewAI, and the professional pipeline.</div>',
+    '<div class="page-sub">Latest results from each evaluator. Re-run an evaluator to refresh.</div>',
     unsafe_allow_html=True,
 )
+
+
+ROOT = Path(__file__).parent.parent
 
 
 def load_results() -> list:
     results = []
     for fname in ["evaluation_results.json", "evaluation_history.json"]:
-        p = Path(fname)
+        p = ROOT / fname
         if p.exists():
             try:
                 data = json.loads(p.read_text())
@@ -65,48 +63,60 @@ def load_results() -> list:
     return results
 
 
-def pass_fail_class(val: str) -> str:
+def pf_class(val: str) -> str:
     v = str(val).lower()
-    if v in ("pass", "true", "approved"):
+    if v in ("pass", "approved", "true"):
         return "kpi-pass"
-    if v in ("fail", "false", "rejected"):
+    if v in ("fail", "rejected", "false"):
         return "kpi-fail"
-    return "kpi-unknown"
+    return ""
 
 
 def render_result(r: dict) -> None:
     pf = str(r.get("pass_fail", "UNKNOWN")).upper()
-    rd = str(r.get("release_decision", "—")).upper()
+    rd = str(r.get("release_decision", "—"))
     fm = r.get("failure_mode") or "none"
     tc = r.get("test_case_id", "N/A")
+    ts = r.get("timestamp", "")[:19].replace("T", " ") if r.get("timestamp") else ""
+
+    if ts:
+        st.caption(f"🕐 {ts}")
 
     c1, c2, c3, c4 = st.columns(4)
-    with c1:
-        st.markdown(
-            f'<div class="kpi-label">Test Case</div><div class="kpi-value">{tc}</div>',
-            unsafe_allow_html=True,
-        )
-    with c2:
-        cls = pass_fail_class(pf)
-        st.markdown(
-            f'<div class="kpi-label">Pass / Fail</div><div class="kpi-value {cls}">{pf}</div>',
-            unsafe_allow_html=True,
-        )
-    with c3:
-        st.markdown(
-            f'<div class="kpi-label">Release Decision</div><div class="kpi-value">{rd}</div>',
-            unsafe_allow_html=True,
-        )
-    with c4:
-        st.markdown(
-            f'<div class="kpi-label">Failure Mode</div><div class="kpi-value" style="font-size:1rem;padding-top:4px">{fm}</div>',
+    for col, label, value, extra_cls in [
+        (c1, "Test Case", tc, ""),
+        (c2, "Pass / Fail", pf, pf_class(pf)),
+        (c3, "Release Decision", rd, ""),
+        (c4, "Failure Mode", fm, ""),
+    ]:
+        col.markdown(
+            f'<div class="kpi-block"><div class="kpi-label">{label}</div>'
+            f'<div class="kpi-value {extra_cls}">{value}</div></div>',
             unsafe_allow_html=True,
         )
 
+    st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+
+    # Safety row
+    sc1, sc2, sc3 = st.columns(3)
+
+    def sfmt(flag: bool, label: str) -> str:
+        if flag:
+            return f'<span class="safety-flag">⚠ {label} detected</span>'
+        return f'<span class="safety-ok">✓ No {label.lower()}</span>'
+
+    sc1.markdown(
+        sfmt(r.get("hallucination_detected", False), "Hallucination"), unsafe_allow_html=True
+    )
+    sc2.markdown(sfmt(r.get("bias_detected", False), "Bias"), unsafe_allow_html=True)
+    sc3.markdown(sfmt(r.get("toxicity_detected", False), "Toxicity"), unsafe_allow_html=True)
+
+    # Metrics chart
     metrics = r.get("metrics", {})
-    if metrics and isinstance(metrics, dict):
+    if isinstance(metrics, dict):
         numeric = {k: v for k, v in metrics.items() if isinstance(v, int | float)}
         if numeric:
+            st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
             df = pd.DataFrame(numeric.items(), columns=["Metric", "Value"])
             fig = px.bar(
                 df,
@@ -114,7 +124,6 @@ def render_result(r: dict) -> None:
                 y="Value",
                 color="Value",
                 color_continuous_scale="Blues",
-                title="Metric Scores",
             )
             fig.update_layout(
                 plot_bgcolor="#0d1117",
@@ -122,31 +131,33 @@ def render_result(r: dict) -> None:
                 font_color="#8b949e",
                 showlegend=False,
                 coloraxis_showscale=False,
-                margin=dict(t=40, b=0, l=0, r=0),
+                margin=dict(t=8, b=0, l=0, r=0),
+                height=220,
             )
             fig.update_traces(marker_line_width=0)
             st.plotly_chart(fig, use_container_width=True)
 
-    st.markdown("**Safety signals**")
-    sc1, sc2, sc3 = st.columns(3)
+    # Recommendations
+    recs = r.get("recommendations", [])
+    if recs:
+        st.markdown("**Recommendations**")
+        for rec in recs if isinstance(recs, list) else [recs]:
+            st.markdown(f'<div class="recs-item">→ {rec}</div>', unsafe_allow_html=True)
 
-    def safety_icon(flag: bool) -> str:
-        return (
-            '<span class="safety-flag">⚠ Detected</span>'
-            if flag
-            else '<span class="safety-ok">✓ Clean</span>'
-        )
-
-    sc1.markdown(
-        f"Hallucination &nbsp; {safety_icon(r.get('hallucination_detected', False))}",
-        unsafe_allow_html=True,
-    )
-    sc2.markdown(
-        f"Bias &nbsp; {safety_icon(r.get('bias_detected', False))}", unsafe_allow_html=True
-    )
-    sc3.markdown(
-        f"Toxicity &nbsp; {safety_icon(r.get('toxicity_detected', False))}", unsafe_allow_html=True
-    )
+    # Bottlenecks / regressions
+    b1, b2 = st.columns(2)
+    bots = r.get("top_bottlenecks", [])
+    regs = r.get("top_regressions", [])
+    if bots:
+        with b1:
+            st.markdown("**Top Bottlenecks**")
+            for b in bots if isinstance(bots, list) else [bots]:
+                st.markdown(f'<div class="recs-item">🐢 {b}</div>', unsafe_allow_html=True)
+    if regs:
+        with b2:
+            st.markdown("**Top Regressions**")
+            for reg in regs if isinstance(regs, list) else [regs]:
+                st.markdown(f'<div class="recs-item">📉 {reg}</div>', unsafe_allow_html=True)
 
 
 all_results = load_results()
@@ -154,37 +165,59 @@ all_results = load_results()
 tab1, tab2, tab3 = st.tabs(["🟢 Ollama", "🔵 CrewAI", "🔴 Professional Pipeline"])
 
 with tab1:
-    res = [r for r in all_results if "ollama" in str(r).lower() or r.get("source") == "ollama"]
+    res = [r for r in all_results if "ollama" in str(r).lower()]
     if not res:
         st.markdown(
-            '<div class="empty-state"><div class="empty-icon">📭</div>No Ollama results yet.<br>Run the Ollama Evaluator from the Launch page.</div>',
+            '<div class="empty-box"><div class="empty-icon">📭</div>No Ollama results yet.<br>Run the Ollama Evaluator from the Launch page.</div>',
             unsafe_allow_html=True,
         )
     else:
-        options = [f"{r.get('test_case_id', 'N/A')} · {r.get('timestamp', '')}" for r in res]
-        sel = st.selectbox("Select run", options, key="ollama_sel")
-        current = res[options.index(sel)]
-        st.markdown('<div class="result-card">', unsafe_allow_html=True)
-        render_result(current)
-        st.markdown("</div>", unsafe_allow_html=True)
+        st.caption(f"{len(res)} run(s) found")
+        options = [
+            f"Run {i + 1} · {r.get('test_case_id', '?')} · {str(r.get('timestamp', ''))[:16]}"
+            for i, r in enumerate(res)
+        ]
+        idx = st.selectbox(
+            "Select run", range(len(options)), format_func=lambda i: options[i], key="ollama_sel"
+        )
+        st.divider()
+        render_result(res[idx])
 
 with tab2:
-    res = [r for r in all_results if "crew" in str(r).lower() or r.get("source") == "crew"]
+    res = [
+        r
+        for r in all_results
+        if "ollama" not in str(r).lower()
+        and ("crew" in str(r).lower() or "pass_fail" in r or "EvaluationReport" in r)
+    ]
     if not res:
         st.markdown(
-            '<div class="empty-state"><div class="empty-icon">📭</div>No CrewAI results yet.<br>Run the CrewAI Evaluator from the Launch page.</div>',
+            '<div class="empty-box"><div class="empty-icon">📭</div>No CrewAI results yet.<br>Run the CrewAI Evaluator from the Launch page.</div>',
             unsafe_allow_html=True,
         )
     else:
-        options = [f"{r.get('test_case_id', 'N/A')} · {r.get('timestamp', '')}" for r in res]
-        sel = st.selectbox("Select run", options, key="crew_sel")
-        current = res[options.index(sel)]
-        st.markdown('<div class="result-card">', unsafe_allow_html=True)
-        render_result(current)
-        st.markdown("</div>", unsafe_allow_html=True)
+        st.caption(f"{len(res)} run(s) found")
+        options = [
+            f"Run {i + 1} · {r.get('test_case_id', '?')} · {str(r.get('timestamp', ''))[:16]}"
+            for i, r in enumerate(res)
+        ]
+        idx = st.selectbox(
+            "Select run", range(len(options)), format_func=lambda i: options[i], key="crew_sel"
+        )
+        # Handle nested EvaluationReport wrapper
+        r = res[idx]
+        if "EvaluationReport" in r and isinstance(r["EvaluationReport"], dict):
+            merged = {
+                **r["EvaluationReport"],
+                **{k: v for k, v in r.items() if k != "EvaluationReport"},
+            }
+        else:
+            merged = r
+        st.divider()
+        render_result(merged)
 
 with tab3:
     st.markdown(
-        '<div class="empty-state"><div class="empty-icon">🗄</div>Professional pipeline results live in<br><strong>Leaderboard · Responses · Pairwise · Metrics</strong></div>',
+        '<div class="empty-box"><div class="empty-icon">🗄</div>Professional pipeline results are in<br><strong>Leaderboard · Responses · Pairwise · Metrics</strong></div>',
         unsafe_allow_html=True,
     )
