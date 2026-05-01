@@ -1,5 +1,6 @@
 """
-ollama_evaluator.py - Clean Local Evaluator with proper error handling
+ollama_evaluator.py
+Clean Local Evaluator with helpful messages.
 """
 
 import json
@@ -7,33 +8,14 @@ import os
 import re
 import sys
 from datetime import datetime
-from typing import Any
+from pathlib import Path
 
-# Conditional import to avoid F401
 try:
     import litellm
 
     LITELLM_AVAILABLE = True
 except ImportError:
     LITELLM_AVAILABLE = False
-
-from pydantic import BaseModel, Field
-
-# Shared tools
-
-
-class EvaluationReport(BaseModel):
-    test_case_id: str
-    pass_fail: str = "UNKNOWN"
-    failure_mode: str = "none"
-    release_decision: str = "hold"
-    metrics: dict[str, Any] = Field(default_factory=dict)
-    hallucination_detected: bool = False
-    bias_detected: bool = False
-    toxicity_detected: bool = False
-    recommendations: list[str] = Field(default_factory=list)
-    top_bottlenecks: list[str] = Field(default_factory=list)
-    timestamp: str = Field(default_factory=lambda: datetime.now().isoformat())
 
 
 def _ollama_reachable() -> bool:
@@ -46,83 +28,164 @@ def _ollama_reachable() -> bool:
         return False
 
 
-def call_llm(prompt: str) -> str:
-    """Call LLM with clean user-friendly messages."""
-    if not LITELLM_AVAILABLE:
-        print("❌ litellm is not installed. Run: pip install litellm")
-        sys.exit(1)
+def _exit_with_error(msg: str) -> None:
+    """Print to both stdout and stderr so the caller always sees the message."""
+    print(msg, flush=True)
+    print(msg, file=sys.stderr, flush=True)
+    sys.exit(1)
 
-    try:
-        if _ollama_reachable():
-            print("🟢 Using local Ollama (llama3.2)")
+
+def call_llm(prompt: str) -> str:
+    if not LITELLM_AVAILABLE:
+        _exit_with_error("❌ litellm is not installed.\n   Run: pip install litellm")
+
+    if _ollama_reachable():
+        print("🟢 Using local Ollama (llama3.2)", flush=True)
+        try:
             response = litellm.completion(
                 model="ollama/llama3.2",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.0,
-                max_tokens=2800,
+                max_tokens=2500,
             )
-        else:
-            print("⚠️  Ollama not running → trying OpenRouter fallback")
-            api_key = os.getenv("OPENAI_API_KEY")
-            if not api_key:
-                print("❌ ERROR: Ollama is not running and OPENAI_API_KEY is not set.")
-                print("   Start Ollama or set your OpenRouter key.")
-                sys.exit(1)
+            return response.choices[0].message.content
+        except Exception as e:
+            _exit_with_error(
+                f"❌ Ollama call failed: {e}\n"
+                "   Make sure Ollama is running and llama3.2 is pulled:\n"
+                "     ollama serve\n"
+                "     ollama pull llama3.2"
+            )
+    else:
+        print("⚠️  Ollama not detected — trying OpenRouter fallback...", flush=True)
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            _exit_with_error(
+                "❌ Ollama is not running and OPENAI_API_KEY is not set.\n"
+                "\n"
+                "   Option 1 — Run Ollama locally:\n"
+                "     ollama serve\n"
+                "     ollama pull llama3.2\n"
+                "\n"
+                "   Option 2 — Set your OpenRouter key:\n"
+                "     export OPENAI_API_KEY=sk-or-v1-...\n"
+                "   Or add it to Streamlit secrets (share.streamlit.io → App settings → Secrets)"
+            )
 
+        print("⚠️  Falling back to OpenRouter gpt-4o-mini", flush=True)
+        try:
             response = litellm.completion(
                 model="openrouter/openai/gpt-4o-mini",
                 messages=[{"role": "user", "content": prompt}],
                 api_key=api_key,
                 base_url="https://openrouter.ai/api/v1",
                 temperature=0.0,
-                max_tokens=2800,
+                max_tokens=2500,
             )
-        return response.choices[0].message.content
+            return response.choices[0].message.content
+        except Exception as e:
+            err = str(e).lower()
+            if "402" in err or "credits" in err or "insufficient" in err:
+                _exit_with_error(
+                    "❌ OpenRouter credit error — your account has no credits.\n"
+                    "   Add credits at: https://openrouter.ai/settings/credits\n"
+                    f"   Detail: {e}"
+                )
+            elif "401" in err or "auth" in err or "key" in err:
+                _exit_with_error(
+                    f"❌ OpenRouter authentication error — check your API key.\n   Detail: {e}"
+                )
+            elif "404" in err or "not found" in err:
+                _exit_with_error(
+                    "❌ OpenRouter model not found.\n"
+                    "   The model 'openrouter/openai/gpt-4o-mini' may be unavailable.\n"
+                    f"   Detail: {e}"
+                )
+            else:
+                _exit_with_error(f"❌ OpenRouter call failed: {e}")
 
-    except Exception as e:
-        err_str = str(e).lower()
-        if "402" in err_str or "credits" in err_str or "payment" in err_str:
-            print("\n❌ OpenRouter Credit Error")
-            print("Add credits here: https://openrouter.ai/settings/credits")
-        else:
-            print(f"\n❌ LLM call failed: {e}")
-        sys.exit(1)
 
+def run_evaluation() -> dict:
+    print("🚀 Starting Ollama Evaluator...\n", flush=True)
 
-def run_evaluation():
-    print("🚀 Starting Ollama Evaluator...\n")
+    test_case = {
+        "test_case_id": "TC-001",
+        "expected_outcome": "Paris is the capital of France.",
+        "context": "Paris is the capital of France.",
+    }
 
-    prompt = "Evaluate this execution and return only valid JSON with pass_fail and failure_mode."
+    prompt = f"""Evaluate this agent execution:
+
+Expected: {test_case["expected_outcome"]}
+Trace: Agent researched and returned correct answer.
+
+Return ONLY valid JSON with these exact keys:
+{{
+  "test_case_id": "{test_case["test_case_id"]}",
+  "pass_fail": "PASS or FAIL",
+  "failure_mode": "none or description",
+  "release_decision": "approve or hold",
+  "recommendations": [],
+  "top_bottlenecks": [],
+  "top_regressions": []
+}}"""
 
     raw = call_llm(prompt)
 
-    # Robust JSON extraction
     match = re.search(r"\{.*\}", raw, re.DOTALL)
     json_str = match.group(0) if match else raw
 
     try:
         data = json.loads(json_str)
-    except Exception:
-        data = {"pass_fail": "UNKNOWN", "failure_mode": "parse_error"}
+    except json.JSONDecodeError:
+        print("⚠️  Could not parse JSON from LLM — using defaults", flush=True)
+        data = {
+            "test_case_id": test_case["test_case_id"],
+            "pass_fail": "UNKNOWN",
+            "failure_mode": "json_parse_error",
+            "release_decision": "hold",
+            "recommendations": [],
+            "top_bottlenecks": [],
+            "top_regressions": [],
+        }
 
-    report = EvaluationReport(**data)
-    report.timestamp = datetime.now().isoformat()
+    data.setdefault("test_case_id", test_case["test_case_id"])
+    data.setdefault("hallucination_detected", False)
+    data.setdefault("bias_detected", False)
+    data.setdefault("toxicity_detected", False)
+    data["timestamp"] = datetime.now().isoformat()
 
     # Save results
     with open("evaluation_results.json", "w") as f:
-        json.dump(report.model_dump(), f, indent=2)
+        json.dump(data, f, indent=2)
 
-    print(f"\n✅ Evaluation Completed → {report.pass_fail}")
-    print(f"   Failure Mode: {report.failure_mode}")
+    history: list = []
+    history_path = Path("evaluation_history.json")
+    if history_path.exists():
+        try:
+            history = json.loads(history_path.read_text())
+        except Exception:
+            history = []
+    history.append(data)
+    history_path.write_text(json.dumps(history, indent=2))
+
+    print("\n✅ Evaluation completed!", flush=True)
+    print(f"   Pass/Fail: {data.get('pass_fail', 'UNKNOWN')}", flush=True)
+    print(f"   Release:   {data.get('release_decision', '—')}", flush=True)
+    print("   Results saved to evaluation_results.json", flush=True)
+    return data
 
 
 if __name__ == "__main__":
     try:
         run_evaluation()
     except KeyboardInterrupt:
-        print("\n\n⛔ Stopped by user.")
+        print("\n⛔ Cancelled.", file=sys.stderr)
+        sys.exit(0)
     except SystemExit:
-        sys.exit(1)
+        raise
     except Exception as e:
-        print(f"\n❌ Unexpected error: {e}")
+        msg = f"❌ Unexpected error: {e}"
+        print(msg, flush=True)
+        print(msg, file=sys.stderr, flush=True)
         sys.exit(1)
