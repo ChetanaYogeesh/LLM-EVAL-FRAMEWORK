@@ -1,283 +1,116 @@
 """
-dashboard.py — LLM Eval Framework · Main Dashboard
+dashboard.py — Entry point for Streamlit.
+Navigation is handled automatically via the pages/ directory.
 """
 
-import asyncio
 import json
-import subprocess
-import sys
 from pathlib import Path
 
 import streamlit as st
 
-# ── Local imports (must still be at top) ──────────────────────────────────────
-from comparator import generate_comparison_report
-from llm_judge import judge_response
-from runners import evaluate_prompts, mock_model_a, mock_model_b
-from scorer import compute_all_metrics
-from sqlite_store import (
-    DB_PATH,
-    create_experiment,
-    get_all_metrics_df,
-    get_experiments,
-    get_leaderboard,
-    get_pairwise_df,
-    init_db,
-    insert_metrics,
-    insert_pairwise,
-    insert_prompt,
-    insert_response,
-    upsert_model,
-)
-
-# ── Path setup AFTER imports ──────────────────────────────────────────────────
-
-ROOT = Path(__file__).parent
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
-
-# ── Page Config ──────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="LLM Eval Framework",
     page_icon="🧪",
     layout="wide",
-    initial_sidebar_state="expanded",
 )
 
-# ── Styles ───────────────────────────────────────────────────────────────────
+ROOT = Path(__file__).parent
+
 st.markdown(
     """
 <style>
-[data-testid="stSidebar"] { background: #0f1117; }
-[data-testid="stSidebar"] * { color: #e0e0e0 !important; }
-[data-testid="metric-container"] {
-    background: #1e2130; border: 1px solid #2e3250; border-radius: 10px; padding: 12px 18px;
-}
-thead tr th { background: #1e2130 !important; }
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Sora:wght@300;400;600;700&display=swap');
+html, body, [class*="css"] { font-family: 'Sora', sans-serif; }
+.hero { padding: 48px 0 32px; }
+.hero-title { font-size: 2.4rem; font-weight: 700; color: #e6edf3; margin-bottom: 8px; }
+.hero-sub   { font-size: 1rem; color: #6e7681; margin-bottom: 40px; }
+.card { background:#0d1117; border:1px solid #21262d; border-radius:12px; padding:20px 22px; height:100%; }
+.card-icon  { font-size:1.8rem; margin-bottom:10px; }
+.card-title { font-weight:700; color:#e6edf3; font-size:0.95rem; margin-bottom:4px; }
+.card-desc  { font-size:0.82rem; color:#6e7681; line-height:1.5; }
+.stat-row   { background:#0d1117; border:1px solid #21262d; border-radius:10px; padding:16px 20px; text-align:center; }
+.stat-val   { font-size:2rem; font-weight:700; color:#58a6ff; font-family:'JetBrains Mono',monospace; }
+.stat-lbl   { font-size:0.72rem; color:#6e7681; text-transform:uppercase; letter-spacing:0.08em; margin-top:2px; }
 </style>
 """,
     unsafe_allow_html=True,
 )
 
-init_db()
+# ── Hero ──────────────────────────────────────────────────────────────────────
+st.markdown(
+    """
+<div class="hero">
+    <div class="hero-title">🧪 LLM Evaluation Framework</div>
+    <div class="hero-sub">
+        Evaluate language models with Ollama, CrewAI multi-agent crews,
+        and a full professional pipeline — all in one place.
+    </div>
+</div>
+""",
+    unsafe_allow_html=True,
+)
 
+# ── Quick stats from both data sources ───────────────────────────────────────
+json_runs = 0
+for fname in ["evaluation_results.json", "evaluation_history.json"]:
+    p = ROOT / fname
+    if p.exists():
+        try:
+            data = json.loads(p.read_text())
+            json_runs += len(data) if isinstance(data, list) else 1
+        except Exception:
+            pass
 
-# ── Load JSON results ────────────────────────────────────────────────────────
-def load_json_results():
-    results = []
-    for file in ["evaluation_results.json", "evaluation_history.json"]:
-        path = Path(file)
-        if path.exists():
-            try:
-                with path.open() as f:
-                    data = json.load(f)
-                if isinstance(data, dict):
-                    data = [data]
-                results.extend(data)
-            except Exception as e:
-                st.warning(f"Failed to load {file}: {e}")
-    return results
-
-
-all_json_results = load_json_results()
-
-
-# ── Async runner ─────────────────────────────────────────────────────────────
-def _run_async(coro):
-    try:
-        loop = asyncio.get_event_loop()
-        if loop.is_closed():
-            raise RuntimeError
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-    return loop.run_until_complete(coro)
-
-
-def run_eval_pipeline(prompts_data, use_real, judge_mode, exp_name, progress_cb=None):
-    if use_real:
-        from models.runners import run_claude, run_openai
-
-        runners = [run_openai, run_claude]
-        runner_names = ["GPT-4.1", "Claude-Sonnet"]
-    else:
-        runners = [mock_model_a, mock_model_b]
-        runner_names = ["MockModel-A", "MockModel-B"]
-
-    create_experiment(exp_name, config={"judge": judge_mode, "real": use_real})
-    model_ids = {name: upsert_model(name) for name in runner_names}
-
-    results = _run_async(evaluate_prompts(prompts_data, runners, runner_names))
-
-    total = len(results)
-    pairwise_reports = []
-
-    for i, item in enumerate(results):
-        prompt_text = item["prompt"]
-        reference = item.get("reference", "")
-        category = item.get("category", "general")
-        prompt_id = insert_prompt(prompt_text, reference, category)
-        resp_texts = {}
-
-        for model_name in runner_names:
-            text = item["responses"].get(model_name, "")
-            resp_texts[model_name] = text
-            resp_id = insert_response(model_ids[model_name], prompt_id, text)
-
-            nlp = compute_all_metrics(text, reference)
-            judged = judge_response(prompt_text, text, reference, judge=judge_mode)
-
-            scores = {
-                **nlp,
-                "judge_score": judged.get("overall", 5),
-                "clarity": judged.get("clarity", 5),
-                "completeness": judged.get("completeness", 5),
-                "conciseness": 5,
-                "tone": 5,
-            }
-            insert_metrics(resp_id, scores)
-
-        if len(runner_names) >= 2:
-            ma, mb = runner_names[0], runner_names[1]
-            rpt = generate_comparison_report(prompt_text, resp_texts[ma], resp_texts[mb], reference)
-            insert_pairwise(
-                prompt_id,
-                model_ids[ma],
-                model_ids[mb],
-                rpt["winner"],
-                rpt["score_a"],
-                rpt["score_b"],
-                {k: list(v) for k, v in rpt["breakdown"].items()},
-            )
-            pairwise_reports.append(rpt)
-
-        if progress_cb:
-            progress_cb((i + 1) / total, f"Processed {i + 1}/{total}")
-
-    return runner_names, pairwise_reports
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-# SIDEBAR
-# ══════════════════════════════════════════════════════════════════════════════
-with st.sidebar:
-    st.markdown("## 🧪 LLM Eval Framework")
-    st.markdown("---")
-    page = st.radio(
-        "Navigate",
-        [
-            "🏠 Overview",
-            "🚀 Launch Evaluators",
-            "🔍 Results",
-            "🏆 Leaderboard",
-            "🔍 Responses",
-            "⚔️ Pairwise",
-            "📊 Metrics",
-        ],
-        label_visibility="collapsed",
-    )
-    st.markdown("---")
-    st.caption(f"DB: `{DB_PATH.name}`")
-
-# ══════════════════════════════════════════════════════════════════════════════
-# OVERVIEW
-# ══════════════════════════════════════════════════════════════════════════════
-if page == "🏠 Overview":
-    st.title("🧪 LLM Evaluation Framework")
+try:
+    from sqlite_store import get_all_metrics_df, get_experiments, get_leaderboard
 
     lb = get_leaderboard()
     exps = get_experiments()
     df = get_all_metrics_df()
+    db_responses = len(df)
+    db_models = len(lb)
+    db_exps = len(exps)
+except Exception:
+    db_responses = db_models = db_exps = 0
 
-    responses_count = len(df) if not df.empty else 0
-    avg_score = round(df["judge_score"].mean(), 2) if not df.empty else "—"
+c1, c2, c3, c4 = st.columns(4)
+for col, val, lbl in [
+    (c1, json_runs, "JSON Eval Runs"),
+    (c2, db_models, "Pipeline Models"),
+    (c3, db_responses, "Pipeline Responses"),
+    (c4, db_exps, "Experiments"),
+]:
+    col.markdown(
+        f'<div class="stat-row"><div class="stat-val">{val}</div><div class="stat-lbl">{lbl}</div></div>',
+        unsafe_allow_html=True,
+    )
 
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Models Evaluated", len(lb))
-    c2.metric("Total Responses", responses_count)
-    c3.metric("Experiments Run", len(exps))
-    c4.metric("Avg Judge Score", avg_score)
+st.markdown("<div style='height:32px'></div>", unsafe_allow_html=True)
 
-# ══════════════════════════════════════════════════════════════════════════════
-# LAUNCH EVALUATORS
-# ══════════════════════════════════════════════════════════════════════════════
-elif page == "🚀 Launch Evaluators":
-    st.title("🚀 Launch Evaluators")
+# ── Page guide ────────────────────────────────────────────────────────────────
+st.markdown("### Navigate")
+cols = st.columns(3)
+pages = [
+    ("🚀", "1 · Launch", "Run Ollama, CrewAI, or the Professional Pipeline"),
+    ("🔍", "2 · Results", "Browse Ollama & CrewAI evaluation results"),
+    ("🏠", "3 · Overview", "Aggregated stats from all evaluators"),
+    ("⚙️", "4 · Pipeline", "Configure and run the full professional pipeline"),
+    ("⚔️", "5 · Pairwise", "Head-to-head model comparisons"),
+    ("📊", "6 · Metrics", "Deep dive into NLP and quality metrics"),
+]
+for i, (icon, title, desc) in enumerate(pages):
+    with cols[i % 3]:
+        st.markdown(
+            f"""
+        <div class="card">
+            <div class="card-icon">{icon}</div>
+            <div class="card-title">{title}</div>
+            <div class="card-desc">{desc}</div>
+        </div>
+        """,
+            unsafe_allow_html=True,
+        )
+        st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
 
-    col1, col2 = st.columns(2)
-
-    with col1:
-        if st.button("Run Ollama"):
-            result = subprocess.run(
-                [sys.executable, str(ROOT / "ollama_evaluator.py")],
-                capture_output=True,
-                text=True,
-                cwd=ROOT,
-            )
-            st.code(result.stdout if result.returncode == 0 else result.stderr)
-
-    with col2:
-        if st.button("Run CrewAI"):
-            result = subprocess.run(
-                [sys.executable, str(ROOT / "crewai_evaluator.py")],
-                capture_output=True,
-                text=True,
-                cwd=ROOT,
-            )
-            st.code(result.stdout if result.returncode == 0 else result.stderr)
-
-# ══════════════════════════════════════════════════════════════════════════════
-# RESPONSES
-# ══════════════════════════════════════════════════════════════════════════════
-elif page == "🔍 Responses":
-    st.title("🔍 Responses")
-
-    df = get_all_metrics_df()
-
-    if df.empty:
-        st.info("No responses yet.")
-    else:
-        for _, row in df.iterrows():
-            with st.expander(f"{row['model']} — {row['judge_score']}/10"):
-                st.write(row["prompt"])
-                st.success(row["response"])
-
-# ══════════════════════════════════════════════════════════════════════════════
-# PAIRWISE
-# ══════════════════════════════════════════════════════════════════════════════
-elif page == "⚔️ Pairwise":
-    pw = get_pairwise_df()
-
-    if pw.empty:
-        st.info("No pairwise results.")
-    else:
-        for _, row in pw.iterrows():
-            with st.expander(row["prompt"][:80]):
-                st.write(row["model_a"], row["score_a"])
-                st.write(row["model_b"], row["score_b"])
-
-                try:
-                    bd = (
-                        json.loads(row["breakdown"])
-                        if isinstance(row["breakdown"], str)
-                        else row["breakdown"]
-                    )
-                    for k, v in bd.items():
-                        if isinstance(v, list | tuple) and len(v) == 3:
-                            st.write(k, v)
-                except Exception:
-                    continue
-
-# ══════════════════════════════════════════════════════════════════════════════
-# METRICS
-# ══════════════════════════════════════════════════════════════════════════════
-elif page == "📊 Metrics":
-    df = get_all_metrics_df()
-
-    if df.empty:
-        st.info("No metrics yet.")
-    else:
-        st.dataframe(df)
-
-# ── Footer ───────────────────────────────────────────────────────────────────
-st.caption("✅ Ruff-clean dashboard")
+st.markdown("<div style='height:24px'></div>", unsafe_allow_html=True)
+st.caption("Use the sidebar to navigate · Results auto-refresh on page load")
