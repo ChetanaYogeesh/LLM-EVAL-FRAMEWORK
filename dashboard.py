@@ -1,6 +1,6 @@
 """
 dashboard.py — Entry point for Streamlit.
-Navigation is handled automatically via the pages/ directory.
+Navigation via sidebar (auto-generated from pages/) and clickable buttons below.
 """
 
 import json
@@ -21,36 +21,30 @@ st.markdown(
 <style>
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Sora:wght@300;400;600;700&display=swap');
 html, body, [class*="css"] { font-family: 'Sora', sans-serif; }
-.hero { padding: 48px 0 32px; }
-.hero-title { font-size: 2.4rem; font-weight: 700; color: #e6edf3; margin-bottom: 8px; }
-.hero-sub   { font-size: 1rem; color: #6e7681; margin-bottom: 40px; }
-.card { background:#0d1117; border:1px solid #21262d; border-radius:12px; padding:20px 22px; height:100%; }
-.card-icon  { font-size:1.8rem; margin-bottom:10px; }
-.card-title { font-weight:700; color:#e6edf3; font-size:0.95rem; margin-bottom:4px; }
-.card-desc  { font-size:0.82rem; color:#6e7681; line-height:1.5; }
-.stat-row   { background:#0d1117; border:1px solid #21262d; border-radius:10px; padding:16px 20px; text-align:center; }
-.stat-val   { font-size:2rem; font-weight:700; color:#58a6ff; font-family:'JetBrains Mono',monospace; }
-.stat-lbl   { font-size:0.72rem; color:#6e7681; text-transform:uppercase; letter-spacing:0.08em; margin-top:2px; }
+.hero-title { font-size:2.2rem; font-weight:700; color:#e6edf3; margin-bottom:6px; }
+.hero-sub   { font-size:0.95rem; color:#6e7681; margin-bottom:32px; }
+.sc  { background:#0d1117; border:1px solid #21262d; border-radius:10px; padding:18px; text-align:center; }
+.sv  { font-size:2rem; font-weight:700; color:#58a6ff; font-family:'JetBrains Mono',monospace; }
+.sl  { font-size:0.7rem; color:#6e7681; text-transform:uppercase; letter-spacing:0.08em; margin-top:2px; }
+.nav-hint { background:#0c1f3f; border:1px solid #1f6feb; border-radius:8px;
+            padding:10px 16px; font-size:0.85rem; color:#58a6ff; margin-bottom:24px; }
 </style>
 """,
     unsafe_allow_html=True,
 )
 
-# ── Hero ──────────────────────────────────────────────────────────────────────
+st.markdown('<div class="hero-title">🧪 LLM Evaluation Framework</div>', unsafe_allow_html=True)
 st.markdown(
-    """
-<div class="hero">
-    <div class="hero-title">🧪 LLM Evaluation Framework</div>
-    <div class="hero-sub">
-        Evaluate language models with Ollama, CrewAI multi-agent crews,
-        and a full professional pipeline — all in one place.
-    </div>
-</div>
-""",
+    '<div class="hero-sub">Evaluate language models with Ollama, CrewAI multi-agent crews, and a full professional pipeline.</div>',
     unsafe_allow_html=True,
 )
 
-# ── Quick stats from both data sources ───────────────────────────────────────
+st.markdown(
+    '<div class="nav-hint">👈 Use the <strong>sidebar</strong> to navigate, or click a page button below.</div>',
+    unsafe_allow_html=True,
+)
+
+# ── Quick stats ───────────────────────────────────────────────────────────────
 json_runs = 0
 for fname in ["evaluation_results.json", "evaluation_history.json"]:
     p = ROOT / fname
@@ -81,36 +75,31 @@ for col, val, lbl in [
     (c4, db_exps, "Experiments"),
 ]:
     col.markdown(
-        f'<div class="stat-row"><div class="stat-val">{val}</div><div class="stat-lbl">{lbl}</div></div>',
+        f'<div class="sc"><div class="sv">{val}</div><div class="sl">{lbl}</div></div>',
         unsafe_allow_html=True,
     )
 
-st.markdown("<div style='height:32px'></div>", unsafe_allow_html=True)
-
-# ── Page guide ────────────────────────────────────────────────────────────────
+st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
 st.markdown("### Navigate")
-cols = st.columns(3)
-pages = [
-    ("🚀", "1 · Launch", "Run Ollama, CrewAI, or the Professional Pipeline"),
-    ("🔍", "2 · Results", "Browse Ollama & CrewAI evaluation results"),
-    ("🏠", "3 · Overview", "Aggregated stats from all evaluators"),
-    ("⚙️", "4 · Pipeline", "Configure and run the full professional pipeline"),
-    ("⚔️", "5 · Pairwise", "Head-to-head model comparisons"),
-    ("📊", "6 · Metrics", "Deep dive into NLP and quality metrics"),
-]
-for i, (icon, title, desc) in enumerate(pages):
-    with cols[i % 3]:
-        st.markdown(
-            f"""
-        <div class="card">
-            <div class="card-icon">{icon}</div>
-            <div class="card-title">{title}</div>
-            <div class="card-desc">{desc}</div>
-        </div>
-        """,
-            unsafe_allow_html=True,
-        )
-        st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
 
-st.markdown("<div style='height:24px'></div>", unsafe_allow_html=True)
-st.caption("Use the sidebar to navigate · Results auto-refresh on page load")
+# ── Clickable page links ──────────────────────────────────────────────────────
+PAGES = [
+    ("pages/1_Launch.py", "🚀", "Launch", "Run Ollama, CrewAI, or the Professional Pipeline"),
+    ("pages/2_Results.py", "🔍", "Results", "Browse Ollama & CrewAI evaluation results"),
+    ("pages/3_Overview.py", "🏠", "Overview", "Aggregated stats from all evaluators"),
+    ("pages/4_Pipeline.py", "⚙️", "Pipeline", "Configure and run the full professional pipeline"),
+    ("pages/5_Pairwise.py", "⚔️", "Pairwise", "Head-to-head model comparisons"),
+    ("pages/6_Metrics.py", "📊", "Metrics", "Deep dive into NLP and quality metrics"),
+]
+
+row1 = st.columns(3, gap="medium")
+row2 = st.columns(3, gap="medium")
+
+for col, (path, icon, title, desc) in zip(row1 + row2, PAGES, strict=False):
+    with col:
+        st.page_link(path, label=f"{icon} **{title}**", use_container_width=True)
+        st.caption(desc)
+        st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
+
+st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
+st.caption("Results auto-refresh on page load · DB stored in evals.db")
