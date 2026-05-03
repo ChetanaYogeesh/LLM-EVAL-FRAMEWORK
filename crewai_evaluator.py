@@ -47,8 +47,9 @@ def get_llm(agent_name: str) -> LLM:
     # Change get_llm() to use Anthropic directly if you have an ANTHROPIC_API_KEY
     # OR use a genuinely free OpenRouter model
 
+    # In get_llm(), replace ALL model names with this one line:
     return LLM(
-        model="openrouter/mistralai/mistral-7b-instruct:free",
+        model="openrouter/free",
         api_key=api_key,
         base_url="https://openrouter.ai/api/v1",
         temperature=0.0,
