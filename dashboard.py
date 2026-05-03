@@ -87,19 +87,20 @@ PAGES = [
     ("pages/1_Launch.py", "🚀", "Launch", "Run Ollama, CrewAI, or the Professional Pipeline"),
     ("pages/2_Results.py", "🔍", "Results", "Browse Ollama & CrewAI evaluation results"),
     ("pages/3_Overview.py", "🏠", "Overview", "Aggregated stats from all evaluators"),
-    ("pages/4_Pipeline.py", "⚙️", "Pipeline", "Configure and run the full professional pipeline"),
-    ("pages/5_Pairwise.py", "⚔️", "Pairwise", "Head-to-head model comparisons"),
-    ("pages/6_Metrics.py", "📊", "Metrics", "Deep dive into NLP and quality metrics"),
+    (
+        "pages/4_Professional_Pipeline.py",
+        "⚙️",
+        "Professional Pipeline",
+        "Run pipeline · leaderboard · pairwise · metrics",
+    ),
 ]
 
-row1 = st.columns(3, gap="medium")
-row2 = st.columns(3, gap="medium")
+cols = st.columns(4, gap="medium")
 
-for col, (path, icon, title, desc) in zip(row1 + row2, PAGES, strict=False):
+for col, (path, icon, title, desc) in zip(cols, PAGES, strict=False):
     with col:
         st.page_link(path, label=f"{icon} **{title}**", use_container_width=True)
         st.caption(desc)
-        st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
 
 st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
 st.caption("Results auto-refresh on page load · DB stored in evals.db")
