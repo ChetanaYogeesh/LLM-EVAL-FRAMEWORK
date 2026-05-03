@@ -194,7 +194,11 @@ for ev in EVALUATORS:
             clicked = st.button("▶ Run", key=ev["key"], use_container_width=True, type="primary")
         else:
             clicked = False
-            st.button("→ Pipeline", key=ev["key"], use_container_width=True, disabled=True)
+            st.page_link(
+                "pages/4_Professional_Pipeline.py",
+                label="→ Open",
+                use_container_width=True,
+            )
 
     if ev["note"] and not ev["script"]:
         st.caption(ev["note"])
