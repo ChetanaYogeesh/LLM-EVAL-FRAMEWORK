@@ -38,21 +38,21 @@ def get_llm(agent_name: str) -> LLM:
         raise RuntimeError("OPENAI_API_KEY is not set. Add it to your .env file.")
 
     if "coordinator" in agent_name.lower() or "quality" in agent_name.lower():
-        model = "openrouter/free"  # "openrouter/openai/gpt-4o"
-        max_tokens = 1000
+        pass
     elif "safety" in agent_name.lower():
-        model = "openrouter/free"  # "openrouter/anthropic/claude-3-haiku"
-        max_tokens = 800
+        pass
     else:
-        model = "openrouter/free"  # "openrouter/google/gemini-flash-1.5"
-        max_tokens = 800
+        pass
+
+    # Change get_llm() to use Anthropic directly if you have an ANTHROPIC_API_KEY
+    # OR use a genuinely free OpenRouter model
 
     return LLM(
-        model=model,
+        model="openrouter/mistralai/mistral-7b-instruct:free",
         api_key=api_key,
         base_url="https://openrouter.ai/api/v1",
         temperature=0.0,
-        max_tokens=max_tokens,
+        max_tokens=800,
     )
 
 
