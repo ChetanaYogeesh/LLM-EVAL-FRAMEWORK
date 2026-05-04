@@ -75,7 +75,7 @@ def call_llm(prompt: str) -> str:
         print("⚠️  Falling back to OpenRouter gpt-4o-mini", flush=True)
         try:
             response = litellm.completion(
-                model="openrouter/openai/gpt-4o-mini",
+                model="openrouter/free",
                 messages=[{"role": "user", "content": prompt}],
                 api_key=api_key,
                 base_url="https://openrouter.ai/api/v1",
