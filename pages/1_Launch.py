@@ -52,7 +52,7 @@ def _friendly_error(log: str) -> tuple[str, str, str] | None:
     if "402" in log or "insufficient credits" in low or "never purchased credits" in low:
         return (
             "💳 OpenRouter — Insufficient Credits",
-            "Your OpenRouter account has no credits. The CrewAI evaluator needs paid credits to run.",
+            "Your OpenRouter account has no credits. This evaluator requires paid OpenRouter credits.",
             "→ Add credits at https://openrouter.ai/settings/credits (even $5 goes a long way)",
         )
     if "401" in log or "invalid api key" in low or "authentication" in low:
@@ -81,7 +81,6 @@ def _friendly_error(log: str) -> tuple[str, str, str] | None:
         )
     if "modulenotfounderror" in low or "no module named" in low:
         import re
-
         m = re.search(r"no module named '([^']+)'", low)
         mod = m.group(1) if m else "unknown"
         return (
